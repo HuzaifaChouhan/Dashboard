@@ -16,7 +16,7 @@ export const AuthProvider = ({ children }) => {
             return null;
         }
     });
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
 
     const loginUser = async (username, password) => {
         try {
@@ -48,28 +48,32 @@ export const AuthProvider = ({ children }) => {
     };
 
     const updateToken = async () => {
-        // Implement refresh token logic here if needed
-        // For simplicity, we just check if we have a token
-        if (authToken) {
-            // Verify token or refresh
-            console.log('Token present, validation logic skipped for simplicity');
-        }
-        if (loading) setLoading(false);
+        // In a real app with refresh tokens, we would hit the refresh endpoint here.
+        // For this simple JWT implementation, we will just check if the token is expired via decoding (simplified)
+        // or rely on the backend 401 to log us out.
+
+        // Simple check: if access token exists but we get 401, we should logout.
+        // We can add an axios interceptor for this, or just handle it in the components.
     };
 
     useEffect(() => {
-        if (loading) {
-            updateToken();
-        }
-
-        let interval = setInterval(() => {
-            if (authToken) {
-                updateToken();
+        // Add a global axios interceptor to handle 401s
+        const interceptor = axios.interceptors.response.use(
+            response => response,
+            error => {
+                if (error.response && error.response.status === 401) {
+                    console.warn("Token expired or unauthorized. Logging out.");
+                    logoutUser();
+                    // Optional: redirect to login if not already there
+                }
+                return Promise.reject(error);
             }
-        }, 1000 * 60 * 4); // 4 minutes
+        );
 
-        return () => clearInterval(interval);
-    }, [authToken, loading]);
+        return () => {
+            axios.interceptors.response.eject(interceptor);
+        };
+    }, []);
 
     const contextData = {
         user,
