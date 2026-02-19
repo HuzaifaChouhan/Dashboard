@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import API_URL from '../config/api';
 
 const AuthContext = createContext();
 
@@ -21,7 +22,7 @@ export const AuthProvider = ({ children }) => {
     const loginUser = async (username, password) => {
         try {
             console.log('Logging in with:', username, password);
-            const response = await axios.post('http://localhost:8000/api/token/', {
+            const response = await axios.post(`${API_URL}/api/token/`, {
                 username,
                 password
             }, {

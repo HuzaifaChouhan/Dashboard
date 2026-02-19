@@ -2,6 +2,7 @@ import React, { useState, useMemo, useContext, useEffect } from "react";
 import { Plus, Search, Filter, MoreVertical, Edit, Trash2, Grid, List, Star, Package, X } from "lucide-react";
 import AuthContext from '../context/AuthContext';
 import axios from 'axios';
+import API_URL from '../config/api';
 
 const Products = () => {
   const { authToken } = useContext(AuthContext);
@@ -23,7 +24,7 @@ const Products = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:8000/api/products/', {
+      const response = await axios.get(`${API_URL}/api/products/`, {
         headers: { Authorization: `Bearer ${authToken.access}` }
       });
       setProducts(response.data);

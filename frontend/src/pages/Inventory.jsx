@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import AuthContext from '../context/AuthContext';
 import axios from 'axios';
+import API_URL from '../config/api';
 
 const Inventory = () => {
   const { authToken } = useContext(AuthContext);
@@ -76,7 +77,7 @@ const Inventory = () => {
   const getImageUrl = (img) => {
     if (!img) return 'https://placehold.co/100x100/1a2332/666?text=No+Image';
     if (typeof img === 'string' && img.startsWith('http')) return img;
-    if (typeof img === 'string' && img.startsWith('/')) return `http://localhost:8000${img}`;
+    if (typeof img === 'string' && img.startsWith('/')) return `${API_URL}${img}`;
     return img;
   };
 
@@ -87,7 +88,7 @@ const Inventory = () => {
   const fetchInventory = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:8000/api/products/', {
+      const response = await axios.get(`${API_URL}/api/products/`, {
         headers: { Authorization: `Bearer ${authToken.access}` }
       });
       setProducts(response.data);
@@ -214,7 +215,7 @@ const Inventory = () => {
         formData.append('image', imageFile);
       }
 
-      const response = await axios.post('http://localhost:8000/api/products/', formData, {
+      const response = await axios.post(`${API_URL}/api/products/`, formData, {
         headers: {
           Authorization: `Bearer ${authToken.access}`,
           'Content-Type': 'multipart/form-data'
@@ -259,7 +260,7 @@ const Inventory = () => {
       onConfirm: async () => {
         setConfirmDialog(null);
         try {
-          await axios.delete(`http://localhost:8000/api/products/${product.id}/`, {
+          await axios.delete(`${API_URL}/api/products/${product.id}/`, {
             headers: { Authorization: `Bearer ${authToken.access}` }
           });
           setProducts(prev => prev.filter(p => p.id !== product.id));
@@ -301,7 +302,7 @@ const Inventory = () => {
         formData.append('image', editImageFile);
       }
 
-      const response = await axios.put(`http://localhost:8000/api/products/${editProduct.id}/`, formData, {
+      const response = await axios.put(`${API_URL}/api/products/${editProduct.id}/`, formData, {
         headers: {
           Authorization: `Bearer ${authToken.access}`,
           'Content-Type': 'multipart/form-data'
@@ -327,7 +328,7 @@ const Inventory = () => {
     else if (newStock <= showStockModal.min_stock) newStatus = 'low-stock';
 
     try {
-      const response = await axios.patch(`http://localhost:8000/api/products/${showStockModal.id}/`, {
+      const response = await axios.patch(`${API_URL}/api/products/${showStockModal.id}/`, {
         current_stock: newStock,
         status: newStatus
       }, {
@@ -396,7 +397,7 @@ const Inventory = () => {
 
         if (productData.id && productData.name) {
           try {
-            await axios.post('http://localhost:8000/api/products/', productData, {
+            await axios.post(`${API_URL}/api/products/`, productData, {
               headers: { Authorization: `Bearer ${authToken.access}` }
             });
             successCount++;
@@ -1349,10 +1350,10 @@ const Inventory = () => {
           <div
             key={toast.id}
             className={`pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl border shadow-2xl backdrop-blur-xl min-w-[320px] max-w-[420px] animate-[slideIn_0.3s_ease-out] ${toast.type === 'success'
-                ? 'bg-green-500/10 border-green-500/30 text-green-400'
-                : toast.type === 'error'
-                  ? 'bg-red-500/10 border-red-500/30 text-red-400'
-                  : 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+              ? 'bg-green-500/10 border-green-500/30 text-green-400'
+              : toast.type === 'error'
+                ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                : 'bg-blue-500/10 border-blue-500/30 text-blue-400'
               }`}
             style={{
               animation: 'slideIn 0.3s ease-out',
@@ -1375,7 +1376,7 @@ const Inventory = () => {
               <div className="mt-2 w-full bg-gray-700/50 rounded-full h-1 overflow-hidden">
                 <div
                   className={`h-full rounded-full ${toast.type === 'success' ? 'bg-green-500' :
-                      toast.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                    toast.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
                     }`}
                   style={{
                     animation: 'shrink 3.5s linear forwards',
@@ -1424,8 +1425,8 @@ const Inventory = () => {
                 <button
                   onClick={confirmDialog.onConfirm}
                   className={`px-4 py-2.5 rounded-lg transition-all text-sm font-medium ${confirmDialog.confirmStyle === 'danger'
-                      ? 'bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25'
-                      : 'bg-[#1e2875] text-white hover:bg-[#2a3599]'
+                    ? 'bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25'
+                    : 'bg-[#1e2875] text-white hover:bg-[#2a3599]'
                     }`}
                 >
                   {confirmDialog.confirmText || 'Confirm'}

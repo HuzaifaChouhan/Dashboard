@@ -2,6 +2,7 @@ import React, { useState, useMemo, useContext, useEffect } from "react";
 import { Search, Filter, MoreVertical, Edit, Trash2, Mail, Phone, MapPin, UserCheck, UserX, Shield } from "lucide-react";
 import AuthContext from '../context/AuthContext';
 import axios from 'axios';
+import API_URL from '../config/api';
 
 const Customers = () => {
   const { authToken } = useContext(AuthContext);
@@ -20,7 +21,7 @@ const Customers = () => {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:8000/api/customers/', {
+      const response = await axios.get(`${API_URL}/api/customers/`, {
         headers: { Authorization: `Bearer ${authToken.access}` }
       });
       setCustomers(response.data);
@@ -134,7 +135,7 @@ const Customers = () => {
                       {customer.verified && <UserCheck className="w-4 h-4 text-blue-400" />}
                     </h3>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${customer.loyalty_tier === 'Gold' ? 'bg-yellow-500/20 text-yellow-500' :
-                        customer.loyalty_tier === 'Silver' ? 'bg-gray-400/20 text-gray-400' : 'bg-orange-700/20 text-orange-700'
+                      customer.loyalty_tier === 'Silver' ? 'bg-gray-400/20 text-gray-400' : 'bg-orange-700/20 text-orange-700'
                       }`}>
                       {customer.loyalty_tier} Member
                     </span>

@@ -11,6 +11,7 @@ import {
 import AuthContext from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import axios from 'axios';
+import API_URL from '../config/api';
 import { useNavigate } from 'react-router-dom';
 
 const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6'];
@@ -150,7 +151,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/api/dashboard-stats/', {
+        const response = await axios.get(`${API_URL}/api/dashboard-stats/`, {
           headers: {
             'Authorization': `Bearer ${authToken.access}`
           }
@@ -244,7 +245,7 @@ const Dashboard = () => {
   const getImageUrl = (img) => {
     if (!img) return 'https://placehold.co/400x400/1a2332/666?text=No+Image';
     if (typeof img === 'string' && img.startsWith('http')) return img;
-    if (typeof img === 'string' && img.startsWith('/')) return `http://localhost:8000${img}`;
+    if (typeof img === 'string' && img.startsWith('/')) return `${API_URL}${img}`;
     return img;
   };
 
