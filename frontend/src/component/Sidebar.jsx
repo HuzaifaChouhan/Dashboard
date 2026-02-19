@@ -1,9 +1,6 @@
 import React from "react";
 import { Home, Package, ShoppingCart, Users, Archive, Settings, X, LogOut } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import useAuth from "../context/AuthContext"; // Assuming default export is AuthContext, but let's check import.
-// Actually AuthContext default export is context, not hook. 
-// I should import useContext and AuthContext.
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const navigate = useNavigate();
@@ -33,25 +30,27 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     <div
       className={`
         fixed lg:static inset-y-0 left-0 z-30
-        w-64 bg-[#1e2875] text-white flex flex-col
+        w-64 flex flex-col
         transform transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}
+      style={{ backgroundColor: '#1e2875', color: '#ffffff' }}
     >
-      <div className="p-4 border-b border-[#2a3690]">
+      <div className="p-4" style={{ borderBottom: '1px solid #2a3690' }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-[#0a0e1a] rounded-lg flex items-center justify-center shrink-0">
-              <Home className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: '#0a0e1a' }}>
+              <Home className="w-5 h-5" style={{ color: '#ffffff' }} />
             </div>
             <div className="overflow-hidden">
-              <h1 className="text-lg font-semibold truncate">ProductVision</h1>
-              <p className="text-xs text-gray-300">ADMIN DASHBOARD</p>
+              <h1 className="text-lg font-semibold truncate" style={{ color: '#ffffff' }}>ProductVision</h1>
+              <p className="text-xs" style={{ color: '#d1d5db' }}>ADMIN DASHBOARD</p>
             </div>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-white hover:bg-[#2a3690] p-1 rounded shrink-0"
+            className="lg:hidden p-1 rounded"
+            style={{ color: '#ffffff' }}
           >
             <X className="w-5 h-5" />
           </button>
@@ -66,19 +65,23 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
             <button
               key={item.id}
               onClick={() => handleNavClick(item.id)}
-              className={`w-full flex items-center gap-3 px-6 py-3 transition-colors ${active
-                  ? "bg-[#2a3690] border-l-4 border-white"
-                  : "hover:bg-[#2a3690]/50 border-l-4 border-transparent"
-                }`}
+              className="w-full flex items-center gap-3 px-6 py-3 transition-colors"
+              style={{
+                backgroundColor: active ? '#2a3690' : 'transparent',
+                borderLeft: active ? '4px solid #ffffff' : '4px solid transparent',
+                color: '#ffffff',
+              }}
+              onMouseEnter={(e) => { if (!active) e.currentTarget.style.backgroundColor = 'rgba(42,54,144,0.5)'; }}
+              onMouseLeave={(e) => { if (!active) e.currentTarget.style.backgroundColor = 'transparent'; }}
             >
-              <Icon className="w-5 h-5" />
-              <span className="text-sm font-medium">{item.label}</span>
+              <Icon className="w-5 h-5" style={{ color: '#ffffff' }} />
+              <span className="text-sm font-medium" style={{ color: '#ffffff' }}>{item.label}</span>
             </button>
           );
         })}
       </nav>
 
-      <div className="p-4 border-t border-[#2a3690]">
+      <div className="p-4" style={{ borderTop: '1px solid #2a3690' }}>
         {/* Footer content if needed */}
       </div>
     </div>

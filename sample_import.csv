@@ -1,0 +1,11 @@
+ID,Name,SKU,Category,Supplier,Stock,Price,Status
+PRD-101,"Swiss Amber Oud",SKU-SA101,Perfumes,SwissAroma,45,89.99,in-stock
+PRD-102,"Midnight Rose Elixir",SKU-MR102,Perfumes,SwissAroma,12,125.50,in-stock
+PRD-103,"Citrus Burst Fresh",SKU-CB103,Colognes,FragranceCo,8,54.99,low-stock
+PRD-104,"Velvet Musk Noir",SKU-VM104,Perfumes,LuxeScents,0,149.99,out-of-stock
+PRD-105,"Ocean Breeze Sport",SKU-OB105,Colognes,FragranceCo,60,39.99,in-stock
+PRD-106,"Lavender Dreams",SKU-LD106,Essential Oils,NaturalBlend,25,29.99,in-stock
+PRD-107,"Sandalwood Classic",SKU-SC107,Perfumes,LuxeScents,3,199.99,low-stock
+PRD-108,"Vanilla Caramel Mist",SKU-VC108,Body Mists,SwissAroma,100,24.99,in-stock
+PRD-109,"Wild Jasmine Night",SKU-WJ109,Perfumes,LuxeScents,0,175.00,out-of-stock
+PRD-110,"Fresh Bergamot Splash",SKU-FB110,Colognes,FragranceCo,35,44.99,in-stock

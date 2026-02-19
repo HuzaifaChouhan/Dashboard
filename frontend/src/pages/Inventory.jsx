@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useContext, useEffect } from 'react';
+import React, { useState, useMemo, useContext, useEffect, useCallback } from 'react';
 import {
   Search,
   Filter,
@@ -17,7 +17,10 @@ import {
   RefreshCw,
   Box,
   BarChart3,
-  Calendar
+  Calendar,
+  CheckCircle2,
+  XCircle,
+  Info
 } from 'lucide-react';
 import AuthContext from '../context/AuthContext';
 import axios from 'axios';
@@ -34,8 +37,11 @@ const Inventory = () => {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedSupplier, setSelectedSupplier] = useState("all");
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [showStockModal, setShowStockModal] = useState(false);
+  const [showStockModal, setShowStockModal] = useState(null);
+  const [stockAdjustment, setStockAdjustment] = useState(0);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editProduct, setEditProduct] = useState(null);
   const [newProduct, setNewProduct] = useState({
     id: "",
     sku: "",
@@ -50,8 +56,29 @@ const Inventory = () => {
     unit_price: 0,
     unit_cost: 0,
     location: "",
-    image: ""
   });
+  const [imageFile, setImageFile] = useState(null);
+  const [editImageFile, setEditImageFile] = useState(null);
+
+  // Toast notification state
+  const [toasts, setToasts] = useState([]);
+  const showToast = useCallback((message, type = 'success') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3500);
+  }, []);
+
+  // Confirm dialog state
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
+  const getImageUrl = (img) => {
+    if (!img) return 'https://placehold.co/100x100/1a2332/666?text=No+Image';
+    if (typeof img === 'string' && img.startsWith('http')) return img;
+    if (typeof img === 'string' && img.startsWith('/')) return `http://localhost:8000${img}`;
+    return img;
+  };
 
   useEffect(() => {
     fetchInventory();
@@ -169,34 +196,219 @@ const Inventory = () => {
   };
 
   // Handle form submission
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
     // Validate required fields
-    if (!newProduct.name || !newProduct.category || !newProduct.supplier) {
-      alert('Please fill in all required fields');
+    if (!newProduct.id || !newProduct.name || !newProduct.category || !newProduct.supplier) {
+      showToast('Please fill in all required fields (ID, Name, Category, Supplier)', 'error');
       return;
     }
 
-    // This would ideally make a POST request to the backend
-    console.log('Adding product:', newProduct);
+    try {
+      const formData = new FormData();
+      Object.entries(newProduct).forEach(([key, value]) => {
+        if (value !== '' && value !== null && value !== undefined) {
+          formData.append(key, value);
+        }
+      });
+      if (imageFile) {
+        formData.append('image', imageFile);
+      }
 
-    // Reset form and close modal
-    setNewProduct({
-      id: "",
-      sku: "",
-      barcode: "",
-      name: "",
-      description: "",
-      category: "",
-      supplier: "",
-      current_stock: 0,
-      min_stock: 0,
-      max_stock: 100,
-      unit_price: 0,
-      unit_cost: 0,
-      location: "",
-      image: ""
+      const response = await axios.post('http://localhost:8000/api/products/', formData, {
+        headers: {
+          Authorization: `Bearer ${authToken.access}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      // Refresh logic or update state directly
+      setProducts(prev => [response.data, ...prev]);
+
+      // Reset form and close modal
+      setNewProduct({
+        id: "",
+        sku: "",
+        barcode: "",
+        name: "",
+        description: "",
+        category: "",
+        supplier: "",
+        current_stock: 0,
+        min_stock: 0,
+        max_stock: 100,
+        unit_price: 0,
+        unit_cost: 0,
+        location: "",
+      });
+      setImageFile(null);
+      setShowAddProductModal(false);
+      showToast('Product added successfully!', 'success');
+    } catch (error) {
+      console.error("Error adding product:", error);
+      showToast('Failed to add product. Please check inputs and try again.', 'error');
+    }
+  };
+
+  // Handle delete product
+  const handleDeleteProduct = (product) => {
+    setConfirmDialog({
+      title: 'Delete Product',
+      message: `Are you sure you want to delete "${product.name}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      confirmStyle: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await axios.delete(`http://localhost:8000/api/products/${product.id}/`, {
+            headers: { Authorization: `Bearer ${authToken.access}` }
+          });
+          setProducts(prev => prev.filter(p => p.id !== product.id));
+          showToast('Product deleted successfully!', 'success');
+        } catch (error) {
+          console.error('Error deleting product:', error);
+          showToast('Failed to delete product.', 'error');
+        }
+      }
     });
-    setShowAddProductModal(false);
+  };
+
+  // Handle opening edit modal
+  const openEditModal = (product) => {
+    setEditProduct({ ...product });
+    setShowEditModal(true);
+  };
+
+  // Handle edit input changes
+  const handleEditInputChange = (field, value) => {
+    setEditProduct(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Handle edit product submit
+  const handleEditProduct = async () => {
+    if (!editProduct.name || !editProduct.category || !editProduct.supplier) {
+      showToast('Please fill in all required fields (Name, Category, Supplier)', 'error');
+      return;
+    }
+    try {
+      const formData = new FormData();
+      Object.entries(editProduct).forEach(([key, value]) => {
+        if (key === 'image') return; // handle image separately
+        if (value !== '' && value !== null && value !== undefined) {
+          formData.append(key, value);
+        }
+      });
+      if (editImageFile) {
+        formData.append('image', editImageFile);
+      }
+
+      const response = await axios.put(`http://localhost:8000/api/products/${editProduct.id}/`, formData, {
+        headers: {
+          Authorization: `Bearer ${authToken.access}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      setProducts(prev => prev.map(p => p.id === editProduct.id ? response.data : p));
+      setShowEditModal(false);
+      setEditProduct(null);
+      setEditImageFile(null);
+      showToast('Product updated successfully!', 'success');
+    } catch (error) {
+      console.error('Error updating product:', error);
+      showToast('Failed to update product. Please check inputs and try again.', 'error');
+    }
+  };
+
+  // Handle adjust stock
+  const handleAdjustStock = async () => {
+    if (!showStockModal) return;
+    const newStock = Math.max(0, showStockModal.current_stock + stockAdjustment);
+    let newStatus = 'in-stock';
+    if (newStock === 0) newStatus = 'out-of-stock';
+    else if (newStock <= showStockModal.min_stock) newStatus = 'low-stock';
+
+    try {
+      const response = await axios.patch(`http://localhost:8000/api/products/${showStockModal.id}/`, {
+        current_stock: newStock,
+        status: newStatus
+      }, {
+        headers: { Authorization: `Bearer ${authToken.access}` }
+      });
+      setProducts(prev => prev.map(p => p.id === showStockModal.id ? response.data : p));
+      setShowStockModal(null);
+      setStockAdjustment(0);
+      showToast('Stock updated successfully!', 'success');
+    } catch (error) {
+      console.error('Error adjusting stock:', error);
+      showToast('Failed to adjust stock.', 'error');
+    }
+  };
+
+  const handleExport = () => {
+    const headers = ["ID", "Name", "SKU", "Category", "Supplier", "Stock", "Price", "Status"];
+    const csvContent = [
+      headers.join(","),
+      ...products.map(p => [
+        p.id,
+        `"${p.name.replace(/"/g, '""')}"`,
+        p.sku,
+        p.category,
+        p.supplier,
+        p.current_stock,
+        p.unit_price,
+        p.status
+      ].join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "inventory_export.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImport = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const text = e.target.result;
+      const rows = text.split("\n").slice(1);
+      let successCount = 0;
+
+      for (const row of rows) {
+        if (!row.trim()) continue;
+        const cols = row.split(",");
+        // Basic parsing - enhance as needed
+        const productData = {
+          id: cols[0]?.trim(),
+          name: cols[1]?.replace(/"/g, '').trim(),
+          sku: cols[2]?.trim(),
+          category: cols[3]?.trim(),
+          supplier: cols[4]?.trim(),
+          current_stock: parseInt(cols[5]) || 0,
+          unit_price: parseFloat(cols[6]) || 0,
+          status: 'in-stock'
+        };
+
+        if (productData.id && productData.name) {
+          try {
+            await axios.post('http://localhost:8000/api/products/', productData, {
+              headers: { Authorization: `Bearer ${authToken.access}` }
+            });
+            successCount++;
+          } catch (err) {
+            console.warn("Import failed for row:", row);
+          }
+        }
+      }
+      showToast(`Imported ${successCount} products successfully!`, 'success');
+      fetchInventory();
+    };
+    reader.readAsText(file);
   };
 
   if (loading) return <div className="text-white text-center mt-20">Loading inventory...</div>;
@@ -323,15 +535,19 @@ const Inventory = () => {
                 Add Product
               </button>
 
-              <button className="px-4 py-2 bg-[#1a2332] border border-gray-600 text-white rounded-lg hover:bg-[#252f41] transition-colors flex items-center gap-2 whitespace-nowrap">
+              <button
+                onClick={handleExport}
+                className="px-4 py-2 bg-[#1a2332] border border-gray-600 text-white rounded-lg hover:bg-[#252f41] transition-colors flex items-center gap-2 whitespace-nowrap"
+              >
                 <Download className="w-4 h-4" />
                 Export
               </button>
 
-              <button className="px-4 py-2 bg-[#1a2332] border border-gray-600 text-white rounded-lg hover:bg-[#252f41] transition-colors flex items-center gap-2 whitespace-nowrap">
+              <label className="px-4 py-2 bg-[#1a2332] border border-gray-600 text-white rounded-lg hover:bg-[#252f41] transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer">
                 <Upload className="w-4 h-4" />
                 Import
-              </button>
+                <input type="file" accept=".csv" className="hidden" onChange={handleImport} />
+              </label>
             </div>
           </div>
 
@@ -427,7 +643,7 @@ const Inventory = () => {
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
                         <img
-                          src={product.image}
+                          src={getImageUrl(product.image)}
                           alt={product.name}
                           className="w-12 h-12 rounded-lg object-cover"
                         />
@@ -456,7 +672,7 @@ const Inventory = () => {
                         <div className="w-full bg-gray-700 rounded-full h-2">
                           <div
                             className={`h-2 rounded-full transition-all ${product.status === 'in-stock' ? 'bg-green-500' :
-                                product.status === 'low-stock' ? 'bg-yellow-500' : 'bg-red-500'
+                              product.status === 'low-stock' ? 'bg-yellow-500' : 'bg-red-500'
                               }`}
                             style={{ width: `${getStockPercentage(product)}%` }}
                           />
@@ -491,19 +707,21 @@ const Inventory = () => {
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
+                          onClick={() => openEditModal(product)}
                           className="p-1 text-gray-400 hover:text-white transition-colors"
                           title="Edit Product"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => setShowStockModal(product)}
+                          onClick={() => { setShowStockModal(product); setStockAdjustment(0); }}
                           className="p-1 text-gray-400 hover:text-white transition-colors"
                           title="Adjust Stock"
                         >
                           <RefreshCw className="w-4 h-4" />
                         </button>
                         <button
+                          onClick={() => handleDeleteProduct(product)}
                           className="p-1 text-gray-400 hover:text-red-500 transition-colors"
                           title="Delete Product"
                         >
@@ -543,7 +761,7 @@ const Inventory = () => {
                   {/* Product Header */}
                   <div className="flex items-start gap-4 pb-6 border-b border-gray-700">
                     <img
-                      src={selectedProduct.image}
+                      src={getImageUrl(selectedProduct.image)}
                       alt={selectedProduct.name}
                       className="w-24 h-24 rounded-lg object-cover"
                     />
@@ -692,7 +910,7 @@ const Inventory = () => {
                       <div className="w-full bg-gray-700 rounded-full h-3 mb-3">
                         <div
                           className={`h-3 rounded-full transition-all ${selectedProduct.status === 'in-stock' ? 'bg-green-500' :
-                              selectedProduct.status === 'low-stock' ? 'bg-yellow-500' : 'bg-red-500'
+                            selectedProduct.status === 'low-stock' ? 'bg-yellow-500' : 'bg-red-500'
                             }`}
                           style={{ width: `${getStockPercentage(selectedProduct)}%` }}
                         />
@@ -704,8 +922,536 @@ const Inventory = () => {
             </div>
           </div>
         )}
+
+        {/* Add Product Modal */}
+        {showAddProductModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]">
+            <div className="bg-[#111827] rounded-lg border border-gray-700 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-white">Add New Product</h3>
+                  <button
+                    onClick={() => setShowAddProductModal(false)}
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Product ID *</label>
+                      <input
+                        type="text"
+                        value={newProduct.id}
+                        onChange={(e) => handleInputChange('id', e.target.value)}
+                        className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                        placeholder="e.g., PRD-001"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">SKU</label>
+                      <input
+                        type="text"
+                        value={newProduct.sku}
+                        onChange={(e) => handleInputChange('sku', e.target.value)}
+                        className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                        placeholder="Stock Keeping Unit"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 text-sm mb-2">Product Name *</label>
+                    <input
+                      type="text"
+                      value={newProduct.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                      placeholder="Product Name"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Category *</label>
+                      <input
+                        type="text"
+                        value={newProduct.category}
+                        onChange={(e) => handleInputChange('category', e.target.value)}
+                        className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                        placeholder="Category"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Supplier *</label>
+                      <input
+                        type="text"
+                        value={newProduct.supplier}
+                        onChange={(e) => handleInputChange('supplier', e.target.value)}
+                        className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                        placeholder="Supplier Name"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Unit Price *</label>
+                      <input
+                        type="number"
+                        value={newProduct.unit_price}
+                        onChange={(e) => handleInputChange('unit_price', e.target.value)}
+                        className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Unit Cost</label>
+                      <input
+                        type="number"
+                        value={newProduct.unit_cost}
+                        onChange={(e) => handleInputChange('unit_cost', e.target.value)}
+                        className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Current Stock</label>
+                      <input
+                        type="number"
+                        value={newProduct.current_stock}
+                        onChange={(e) => handleInputChange('current_stock', e.target.value)}
+                        className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 text-sm mb-2">Description</label>
+                    <textarea
+                      value={newProduct.description}
+                      onChange={(e) => handleInputChange('description', e.target.value)}
+                      className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                      placeholder="Product description..."
+                      rows="3"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 text-sm mb-2">Product Image</label>
+                    <div className="flex items-center gap-4">
+                      {imageFile && (
+                        <img
+                          src={URL.createObjectURL(imageFile)}
+                          alt="Preview"
+                          className="w-16 h-16 rounded-lg object-cover"
+                        />
+                      )}
+                      <label className="flex-1 flex items-center justify-center px-4 py-3 bg-[#1a2332] border border-gray-600 border-dashed rounded-lg text-gray-400 hover:border-[#1e2875] hover:text-white transition-colors cursor-pointer">
+                        <Upload className="w-4 h-4 mr-2" />
+                        {imageFile ? imageFile.name : 'Choose an image file...'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => setImageFile(e.target.files[0] || null)}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 mt-6">
+                    <button
+                      onClick={() => setShowAddProductModal(false)}
+                      className="px-4 py-2 border border-gray-600 text-gray-400 rounded-lg hover:text-white hover:border-gray-500 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleAddProduct}
+                      className="px-4 py-2 bg-[#1e2875] text-white rounded-lg hover:bg-[#2a3599] transition-colors"
+                    >
+                      Add Product
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Product Modal */}
+        {showEditModal && editProduct && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]">
+            <div className="bg-[#111827] rounded-lg border border-gray-700 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-white">Edit Product</h3>
+                  <button
+                    onClick={() => { setShowEditModal(false); setEditProduct(null); }}
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Product ID</label>
+                      <input
+                        type="text"
+                        value={editProduct.id}
+                        disabled
+                        className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-gray-500 cursor-not-allowed"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">SKU</label>
+                      <input
+                        type="text"
+                        value={editProduct.sku || ''}
+                        onChange={(e) => handleEditInputChange('sku', e.target.value)}
+                        className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 text-sm mb-2">Product Name *</label>
+                    <input
+                      type="text"
+                      value={editProduct.name}
+                      onChange={(e) => handleEditInputChange('name', e.target.value)}
+                      className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Category *</label>
+                      <input
+                        type="text"
+                        value={editProduct.category}
+                        onChange={(e) => handleEditInputChange('category', e.target.value)}
+                        className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Supplier *</label>
+                      <input
+                        type="text"
+                        value={editProduct.supplier}
+                        onChange={(e) => handleEditInputChange('supplier', e.target.value)}
+                        className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Unit Price *</label>
+                      <input
+                        type="number"
+                        value={editProduct.unit_price}
+                        onChange={(e) => handleEditInputChange('unit_price', e.target.value)}
+                        className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Unit Cost</label>
+                      <input
+                        type="number"
+                        value={editProduct.unit_cost}
+                        onChange={(e) => handleEditInputChange('unit_cost', e.target.value)}
+                        className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Current Stock</label>
+                      <input
+                        type="number"
+                        value={editProduct.current_stock}
+                        onChange={(e) => handleEditInputChange('current_stock', parseInt(e.target.value) || 0)}
+                        className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Min Stock</label>
+                      <input
+                        type="number"
+                        value={editProduct.min_stock}
+                        onChange={(e) => handleEditInputChange('min_stock', parseInt(e.target.value) || 0)}
+                        className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Max Stock</label>
+                      <input
+                        type="number"
+                        value={editProduct.max_stock}
+                        onChange={(e) => handleEditInputChange('max_stock', parseInt(e.target.value) || 0)}
+                        className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Location</label>
+                      <input
+                        type="text"
+                        value={editProduct.location || ''}
+                        onChange={(e) => handleEditInputChange('location', e.target.value)}
+                        className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 text-sm mb-2">Description</label>
+                    <textarea
+                      value={editProduct.description || ''}
+                      onChange={(e) => handleEditInputChange('description', e.target.value)}
+                      className="w-full px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#1e2875]"
+                      rows="3"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 text-sm mb-2">Product Image</label>
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={editImageFile ? URL.createObjectURL(editImageFile) : getImageUrl(editProduct.image)}
+                        alt="Current"
+                        className="w-16 h-16 rounded-lg object-cover"
+                      />
+                      <label className="flex-1 flex items-center justify-center px-4 py-3 bg-[#1a2332] border border-gray-600 border-dashed rounded-lg text-gray-400 hover:border-[#1e2875] hover:text-white transition-colors cursor-pointer">
+                        <Upload className="w-4 h-4 mr-2" />
+                        {editImageFile ? editImageFile.name : 'Choose a new image...'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => setEditImageFile(e.target.files[0] || null)}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 mt-6">
+                    <button
+                      onClick={() => { setShowEditModal(false); setEditProduct(null); }}
+                      className="px-4 py-2 border border-gray-600 text-gray-400 rounded-lg hover:text-white hover:border-gray-500 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleEditProduct}
+                      className="px-4 py-2 bg-[#1e2875] text-white rounded-lg hover:bg-[#2a3599] transition-colors"
+                    >
+                      Save Changes
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Adjust Stock Modal */}
+        {showStockModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]">
+            <div className="bg-[#111827] rounded-lg border border-gray-700 max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-white">Adjust Stock</h3>
+                  <button
+                    onClick={() => { setShowStockModal(null); setStockAdjustment(0); }}
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="bg-[#1a2332] rounded-lg p-4">
+                    <p className="text-white font-medium">{showStockModal.name}</p>
+                    <p className="text-gray-400 text-sm">SKU: {showStockModal.sku} | ID: {showStockModal.id}</p>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-[#1a2332] rounded-lg p-4">
+                    <span className="text-gray-400">Current Stock</span>
+                    <span className="text-white text-xl font-bold">{showStockModal.current_stock}</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 text-sm mb-2">Adjustment (use negative to reduce)</label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setStockAdjustment(prev => prev - 1)}
+                        className="w-10 h-10 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors flex items-center justify-center text-xl font-bold"
+                      >
+                        −
+                      </button>
+                      <input
+                        type="number"
+                        value={stockAdjustment}
+                        onChange={(e) => setStockAdjustment(parseInt(e.target.value) || 0)}
+                        className="flex-1 px-3 py-2 bg-[#1a2332] border border-gray-600 rounded-lg text-white text-center text-lg focus:outline-none focus:border-[#1e2875]"
+                      />
+                      <button
+                        onClick={() => setStockAdjustment(prev => prev + 1)}
+                        className="w-10 h-10 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30 transition-colors flex items-center justify-center text-xl font-bold"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-[#1a2332] rounded-lg p-4">
+                    <span className="text-gray-400">New Stock</span>
+                    <span className={`text-xl font-bold ${Math.max(0, showStockModal.current_stock + stockAdjustment) === 0 ? 'text-red-400' :
+                      Math.max(0, showStockModal.current_stock + stockAdjustment) <= showStockModal.min_stock ? 'text-yellow-400' :
+                        'text-green-400'
+                      }`}>
+                      {Math.max(0, showStockModal.current_stock + stockAdjustment)}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-end gap-3 mt-6">
+                    <button
+                      onClick={() => { setShowStockModal(null); setStockAdjustment(0); }}
+                      className="px-4 py-2 border border-gray-600 text-gray-400 rounded-lg hover:text-white hover:border-gray-500 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleAdjustStock}
+                      className="px-4 py-2 bg-[#1e2875] text-white rounded-lg hover:bg-[#2a3599] transition-colors"
+                    >
+                      Update Stock
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+
+      {/* Toast Notifications */}
+      <div className="fixed top-4 right-4 z-[99999] flex flex-col gap-3 pointer-events-none">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl border shadow-2xl backdrop-blur-xl min-w-[320px] max-w-[420px] animate-[slideIn_0.3s_ease-out] ${toast.type === 'success'
+                ? 'bg-green-500/10 border-green-500/30 text-green-400'
+                : toast.type === 'error'
+                  ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                  : 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+              }`}
+            style={{
+              animation: 'slideIn 0.3s ease-out',
+            }}
+          >
+            <div className="flex-shrink-0 mt-0.5">
+              {toast.type === 'success' ? (
+                <CheckCircle2 className="w-5 h-5" />
+              ) : toast.type === 'error' ? (
+                <XCircle className="w-5 h-5" />
+              ) : (
+                <Info className="w-5 h-5" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">
+                {toast.type === 'success' ? 'Success' : toast.type === 'error' ? 'Error' : 'Info'}
+              </p>
+              <p className="text-sm opacity-80 mt-0.5">{toast.message}</p>
+              <div className="mt-2 w-full bg-gray-700/50 rounded-full h-1 overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${toast.type === 'success' ? 'bg-green-500' :
+                      toast.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                    }`}
+                  style={{
+                    animation: 'shrink 3.5s linear forwards',
+                  }}
+                />
+              </div>
+            </div>
+            <button
+              onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+              className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Confirm Dialog */}
+      {confirmDialog && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[99999]">
+          <div className="bg-[#111827] rounded-xl border border-gray-700 max-w-md w-full shadow-2xl animate-[scaleIn_0.2s_ease-out]"
+            style={{ animation: 'scaleIn 0.2s ease-out' }}
+          >
+            <div className="p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${confirmDialog.confirmStyle === 'danger' ? 'bg-red-500/15' : 'bg-blue-500/15'
+                  }`}>
+                  {confirmDialog.confirmStyle === 'danger' ? (
+                    <AlertTriangle className="w-6 h-6 text-red-500" />
+                  ) : (
+                    <Info className="w-6 h-6 text-blue-500" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">{confirmDialog.title}</h3>
+                </div>
+              </div>
+              <p className="text-gray-400 text-sm mb-6 leading-relaxed">{confirmDialog.message}</p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setConfirmDialog(null)}
+                  className="px-4 py-2.5 border border-gray-600 text-gray-400 rounded-lg hover:text-white hover:border-gray-500 transition-all text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDialog.onConfirm}
+                  className={`px-4 py-2.5 rounded-lg transition-all text-sm font-medium ${confirmDialog.confirmStyle === 'danger'
+                      ? 'bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25'
+                      : 'bg-[#1e2875] text-white hover:bg-[#2a3599]'
+                    }`}
+                >
+                  {confirmDialog.confirmText || 'Confirm'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Keyframe animations */}
+      <style>{`
+          @keyframes slideIn {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+          }
+          @keyframes shrink {
+            from { width: 100%; }
+            to { width: 0%; }
+          }
+          @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+          }
+        `}</style>
+    </div >
   );
 };
 

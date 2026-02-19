@@ -13,33 +13,35 @@ const Header = ({ setSidebarOpen }) => {
   };
 
   return (
-    <header className="bg-[#111827] border-b border-gray-700 px-4 sm:px-6 py-4">
+    <header style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }} className="border-b px-4 sm:px-6 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="lg:hidden text-white hover:bg-gray-700 p-2 rounded-lg"
+            className="lg:hidden p-2 rounded-lg"
+            style={{ color: 'var(--text-primary)' }}
             data-testid="mobile-menu-btn"
           >
             <Menu className="w-6 h-6" />
           </button>
-          <h2 className="text-lg sm:text-xl font-semibold text-white">
-            Dashboard Overview <span className="text-gray-400 text-xs sm:text-sm hidden sm:inline">(Admin)</span>
+          <h2 className="text-lg sm:text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+            Dashboard Overview <span className="text-xs sm:text-sm hidden sm:inline" style={{ color: 'var(--text-muted)' }}>(Admin)</span>
           </h2>
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="hidden sm:flex text-gray-400 hover:text-white hover:bg-gray-700 p-2 rounded-lg transition-colors">
+          <button className="hidden sm:flex p-2 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}>
             <Search className="w-5 h-5" />
           </button>
-          <button className="relative text-gray-400 hover:text-white hover:bg-gray-700 p-2 rounded-lg transition-colors">
+          <button className="relative p-2 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}>
             <Bell className="w-5 h-5" />
             <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
           </button>
 
           <button
             onClick={handleLogout}
-            className="text-gray-400 hover:text-red-400 hover:bg-gray-700 p-2 rounded-lg transition-colors flex items-center gap-2"
+            className="hover:text-red-400 p-2 rounded-lg transition-colors flex items-center gap-2"
+            style={{ color: 'var(--text-muted)' }}
             title="Logout"
           >
             <LogOut className="w-5 h-5" />

@@ -2,6 +2,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db.models import Sum, Count, F
 from django.utils import timezone
 from datetime import timedelta
@@ -12,6 +13,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     filterset_fields = ['category', 'status', 'supplier']
     search_fields = ['name', 'description', 'sku']
 
@@ -55,8 +57,6 @@ class DashboardStatsView(APIView):
         recent_products_data = ProductSerializer(recent_products, many=True).data
 
         # Sales Chart Data (Last 6 months simplified)
-        # For a real implementation, we'd aggregate by month.
-        # Here we'll return a structure matching the frontend expectation
         sales_data = [
             {'name': 'Jan', 'sales': 4000, 'orders': 240},
             {'name': 'Feb', 'sales': 3000, 'orders': 198},
@@ -64,6 +64,16 @@ class DashboardStatsView(APIView):
             {'name': 'Apr', 'sales': 4500, 'orders': 278},
             {'name': 'May', 'sales': 6000, 'orders': 389},
             {'name': 'Jun', 'sales': 5500, 'orders': 349},
+        ]
+
+        # Inventory Data (stock by category)
+        inventory_by_category = Product.objects.values('category').annotate(
+            stock=Sum('current_stock')
+        ).order_by('-stock')
+
+        inventory_data = [
+            {'name': item['category'] or 'Uncategorized', 'stock': item['stock'] or 0}
+            for item in inventory_by_category
         ]
 
         return Response({
@@ -75,5 +85,6 @@ class DashboardStatsView(APIView):
             },
             'recent_orders': recent_orders_data,
             'recent_products': recent_products_data,
-            'sales_data': sales_data
+            'sales_data': sales_data,
+            'inventory_data': inventory_data
         })

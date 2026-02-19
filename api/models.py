@@ -39,7 +39,7 @@ class Product(models.Model):
     status = models.CharField(max_length=20, default='in-stock') # in-stock, low-stock, out-of-stock
     location = models.CharField(max_length=100, blank=True)
     last_restocked = models.DateTimeField(auto_now_add=True)
-    image = models.URLField(blank=True)
+    image = models.ImageField(upload_to='products/', blank=True, null=True)
     
     rating = models.IntegerField(default=5)
     reviews = models.IntegerField(default=0)
