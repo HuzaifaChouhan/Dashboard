@@ -1,3 +1,17 @@
+/**
+ * Products.jsx — Universal page for Products / Courses / Departments
+ * 
+ * This page is CONFIG-DRIVEN — it reads the current category from CategoryContext
+ * and dynamically changes:
+ *   - API endpoint to fetch from
+ *   - Table columns / card fields
+ *   - Add modal form fields
+ *   - Search/filter logic
+ * 
+ * E-Commerce → Products | Education → Courses | Healthcare → Departments
+ * 
+ * CRUD: Add (modal) and Delete (trash icon) are supported for all categories.
+ */
 import React, { useState, useMemo, useContext, useEffect } from "react";
 import { Search, Grid, List, Package, BookOpen, Building2, Plus, Trash2, X } from "lucide-react";
 import AuthContext from '../context/AuthContext';
@@ -5,6 +19,10 @@ import { useCategory } from '../context/CategoryContext';
 import axios from 'axios';
 import API_URL from '../config/api';
 
+// ============================================================
+// CONFIG — All category-specific settings in one place
+// Each category has: title, API endpoint, columns, card fields, and form fields
+// ============================================================
 const CATEGORY_CONFIG = {
   ecommerce: {
     title: 'Products', endpoint: '/api/products/', searchPlaceholder: 'Search products...', filterField: 'category', icon: Package,
@@ -60,10 +78,13 @@ const CATEGORY_CONFIG = {
   }
 };
 
-const statusColor = (s) => {
-  const map = { 'in-stock': 'bg-green-500/20 text-green-400', 'low-stock': 'bg-yellow-500/20 text-yellow-400', 'out-of-stock': 'bg-red-500/20 text-red-400', 'active': 'bg-green-500/20 text-green-400', 'draft': 'bg-gray-500/20 text-gray-400', 'archived': 'bg-red-500/20 text-red-400' };
-  return map[s] || 'bg-blue-500/20 text-blue-400';
-};
+// Maps status strings to Tailwind color classes
+const statusColor = (s) => ({
+  'in-stock': 'bg-green-500/20 text-green-400', 'active': 'bg-green-500/20 text-green-400',
+  'low-stock': 'bg-yellow-500/20 text-yellow-400', 'out-of-stock': 'bg-red-500/20 text-red-400',
+  'draft': 'bg-gray-500/20 text-gray-400', 'archived': 'bg-red-500/20 text-red-400',
+}[s] || 'bg-blue-500/20 text-blue-400');
+
 
 const Products = () => {
   const { authToken } = useContext(AuthContext);
@@ -71,6 +92,7 @@ const Products = () => {
   const config = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.ecommerce;
   const Icon = config.icon;
 
+  // State
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -79,21 +101,21 @@ const Products = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [formData, setFormData] = useState({});
 
-  useEffect(() => {
-    fetchData();
-  }, [authToken, category]);
+  // Fetch data when auth token or category changes
+  useEffect(() => { fetchData(); }, [authToken, category]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}${config.endpoint}`, {
+      const res = await axios.get(`${API_URL}${config.endpoint}`, {
         headers: { Authorization: `Bearer ${authToken.access}` }
       });
-      setItems(response.data);
+      setItems(res.data);
     } catch (err) { console.error("Error:", err); }
     finally { setLoading(false); }
   };
 
+  // CREATE — POST to API
   const handleAdd = async () => {
     try {
       await axios.post(`${API_URL}${config.endpoint}`, formData, {
@@ -101,10 +123,11 @@ const Products = () => {
       });
       setShowAddModal(false);
       setFormData({});
-      fetchData();
+      fetchData(); // Refresh the list
     } catch (err) { console.error("Add error:", err); alert("Failed to add. Check all required fields."); }
   };
 
+  // DELETE — DELETE from API
   const handleDelete = async (id) => {
     if (!window.confirm(`Delete ${id}?`)) return;
     try {
@@ -115,8 +138,10 @@ const Products = () => {
     } catch (err) { console.error("Delete error:", err); }
   };
 
+  // Build filter dropdown options from unique values
   const filterOptions = useMemo(() => ["All", ...new Set(items.map(i => i[config.filterField]).filter(Boolean))], [items, config.filterField]);
 
+  // Apply search + filter
   const filtered = useMemo(() => {
     return items.filter(item => {
       const matchSearch = Object.values(item).some(v => String(v).toLowerCase().includes(searchTerm.toLowerCase()));
@@ -125,6 +150,7 @@ const Products = () => {
     });
   }, [items, searchTerm, filterValue, config.filterField]);
 
+  // --- Loading State ---
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
@@ -134,38 +160,43 @@ const Products = () => {
     );
   }
 
+  // --- Main Render ---
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Page Header + Search + Filters + Add Button */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{config.title}</h1>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{filtered.length} total {config.title.toLowerCase()}</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{filtered.length} total</p>
         </div>
         <div className="flex items-center gap-3">
+          {/* Search Input */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-dim)' }} />
             <input type="text" placeholder={config.searchPlaceholder} value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
               className="pl-10 pr-4 py-2 rounded-lg border text-sm w-56"
               style={{ backgroundColor: 'var(--input-bg)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
           </div>
+          {/* Filter Dropdown */}
           <select value={filterValue} onChange={e => setFilterValue(e.target.value)}
             className="px-3 py-2 rounded-lg border text-sm"
             style={{ backgroundColor: 'var(--input-bg)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
             {filterOptions.map(f => <option key={f} value={f}>{f}</option>)}
           </select>
+          {/* Grid/List Toggle */}
           <div className="flex items-center border rounded-lg overflow-hidden" style={{ borderColor: 'var(--border-color)' }}>
             <button onClick={() => setViewMode('grid')} className="p-2" style={{ backgroundColor: viewMode === 'grid' ? 'var(--bg-tertiary)' : 'transparent', color: viewMode === 'grid' ? 'var(--text-primary)' : 'var(--text-dim)' }}><Grid className="w-4 h-4" /></button>
             <button onClick={() => setViewMode('list')} className="p-2" style={{ backgroundColor: viewMode === 'list' ? 'var(--bg-tertiary)' : 'transparent', color: viewMode === 'list' ? 'var(--text-primary)' : 'var(--text-dim)' }}><List className="w-4 h-4" /></button>
           </div>
+          {/* Add Button */}
           <button onClick={() => { setFormData({}); setShowAddModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium hover:opacity-90 transition-opacity">
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium hover:opacity-90">
             <Plus className="w-4 h-4" /> Add
           </button>
         </div>
       </div>
 
-      {/* Grid View */}
+      {/* GRID VIEW — Card layout */}
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map(item => {
@@ -173,6 +204,7 @@ const Products = () => {
             return (
               <div key={item.id} className="rounded-xl border p-4 hover:scale-[1.02] transition-transform duration-200 group relative"
                 style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+                {/* Delete (shows on hover) */}
                 <button onClick={() => handleDelete(item.id)}
                   className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity bg-red-500/20 hover:bg-red-500/30 text-red-400">
                   <Trash2 className="w-3.5 h-3.5" />
@@ -181,9 +213,7 @@ const Products = () => {
                   <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
                     <Icon className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
                   </div>
-                  {cf.badge && item[cf.badge] && (
-                    <span className={`text-xs px-2 py-1 rounded-full ${statusColor(item[cf.badge])}`}>{item[cf.badge]}</span>
-                  )}
+                  {cf.badge && item[cf.badge] && <span className={`text-xs px-2 py-1 rounded-full ${statusColor(item[cf.badge])}`}>{item[cf.badge]}</span>}
                 </div>
                 <h3 className="font-semibold text-sm mb-1 truncate" style={{ color: 'var(--text-primary)' }}>{item[cf.title]}</h3>
                 <p className="text-xs mb-3 truncate" style={{ color: 'var(--text-muted)' }}>{item[cf.subtitle]}</p>
@@ -198,6 +228,7 @@ const Products = () => {
           })}
         </div>
       ) : (
+        /* TABLE VIEW */
         <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -221,9 +252,7 @@ const Products = () => {
                       </td>
                     ))}
                     <td className="px-4 py-3 text-right">
-                      <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
                     </td>
                   </tr>
                 ))}
@@ -233,6 +262,7 @@ const Products = () => {
         </div>
       )}
 
+      {/* Empty State */}
       {filtered.length === 0 && (
         <div className="text-center py-16">
           <Icon className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--text-dim)' }} />
@@ -240,7 +270,7 @@ const Products = () => {
         </div>
       )}
 
-      {/* Add Modal */}
+      {/* ADD MODAL — Form fields come from config.addFields */}
       {showAddModal && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowAddModal(false)} />
@@ -269,8 +299,7 @@ const Products = () => {
                 ))}
               </div>
               <div className="px-6 py-4 border-t flex justify-end gap-3" style={{ borderColor: 'var(--border-color)' }}>
-                <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-lg border text-sm"
-                  style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Cancel</button>
+                <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Cancel</button>
                 <button onClick={handleAdd} className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium hover:opacity-90">
                   Add {config.title.replace(/s$/, '')}
                 </button>

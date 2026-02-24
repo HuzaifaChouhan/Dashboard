@@ -1,3 +1,13 @@
+/**
+ * Dashboard.jsx — Main analytics dashboard
+ * 
+ * Fetches data from /api/dashboard-stats/?category= and renders:
+ * 1. KPI cards (4 per category with icons, values, and trends)
+ * 2. Chart (Area/Bar/Line/Pie/Radar — type saved in localStorage via Settings)
+ * 3. Recent items table (Orders / Enrollments / Appointments)
+ * 
+ * Everything adapts dynamically to the selected category.
+ */
 import React, { useState, useEffect, useContext } from "react";
 import {
   Star, TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Users,
@@ -18,7 +28,7 @@ import { useNavigate } from 'react-router-dom';
 
 const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6'];
 
-// Map icon names from API to actual components
+// Maps icon NAME strings from the API response to actual Lucide icon components
 const ICON_MAP = {
   DollarSign, ShoppingCart, Package, Users, GraduationCap, Award, BookOpen,
   Heart, Calendar, BedDouble: BedDouble, AlertTriangle: AlertCircle, Bed: BedDouble,

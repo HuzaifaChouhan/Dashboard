@@ -1,18 +1,23 @@
+/**
+ * Orders.jsx — Universal page for Orders / Enrollments / Appointments
+ * 
+ * CONFIG-DRIVEN — changes API endpoint, columns, and filters based on category.
+ * E-Commerce → Orders | Education → Enrollments | Healthcare → Appointments
+ * 
+ * Features: search, status filter, sortable table with status badges and progress bars.
+ */
 import React, { useState, useMemo, useContext, useEffect } from "react";
-import { Search, ShoppingCart, ClipboardList, Calendar, Eye } from "lucide-react";
+import { Search, ShoppingCart, ClipboardList, Calendar } from "lucide-react";
 import AuthContext from '../context/AuthContext';
 import { useCategory } from '../context/CategoryContext';
 import axios from 'axios';
 import API_URL from '../config/api';
 
+// Config for each category's order-like page
 const CATEGORY_CONFIG = {
   ecommerce: {
-    title: 'Orders',
-    endpoint: '/api/orders/',
-    searchPlaceholder: 'Search orders...',
-    icon: ShoppingCart,
-    filterField: 'status',
-    filterOptions: ['All', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'],
+    title: 'Orders', endpoint: '/api/orders/', searchPlaceholder: 'Search orders...', icon: ShoppingCart,
+    filterField: 'status', filterOptions: ['All', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'],
     columns: [
       { key: 'id', label: 'Order ID' },
       { key: 'customer_name', label: 'Customer' },
@@ -23,28 +28,20 @@ const CATEGORY_CONFIG = {
     ]
   },
   education: {
-    title: 'Enrollments',
-    endpoint: '/api/enrollments/',
-    searchPlaceholder: 'Search enrollments...',
-    icon: ClipboardList,
-    filterField: 'status',
-    filterOptions: ['All', 'active', 'completed', 'dropped'],
+    title: 'Enrollments', endpoint: '/api/enrollments/', searchPlaceholder: 'Search enrollments...', icon: ClipboardList,
+    filterField: 'status', filterOptions: ['All', 'active', 'completed', 'dropped'],
     columns: [
       { key: 'id', label: 'ID' },
       { key: 'student_name', label: 'Student' },
       { key: 'course_name', label: 'Course' },
-      { key: 'progress', label: 'Progress', isProgress: true },
+      { key: 'progress', label: 'Progress', isProgress: true },  // Rendered as progress bar
       { key: 'grade', label: 'Grade', format: v => v || '—' },
       { key: 'status', label: 'Status' },
     ]
   },
   healthcare: {
-    title: 'Appointments',
-    endpoint: '/api/appointments/',
-    searchPlaceholder: 'Search appointments...',
-    icon: Calendar,
-    filterField: 'status',
-    filterOptions: ['All', 'scheduled', 'completed', 'cancelled', 'no-show'],
+    title: 'Appointments', endpoint: '/api/appointments/', searchPlaceholder: 'Search appointments...', icon: Calendar,
+    filterField: 'status', filterOptions: ['All', 'scheduled', 'completed', 'cancelled', 'no-show'],
     columns: [
       { key: 'id', label: 'ID' },
       { key: 'patient_name', label: 'Patient' },
@@ -56,17 +53,15 @@ const CATEGORY_CONFIG = {
   }
 };
 
-const statusColor = (s) => {
-  const map = {
-    'delivered': 'bg-green-500/20 text-green-400', 'completed': 'bg-green-500/20 text-green-400',
-    'shipped': 'bg-blue-500/20 text-blue-400', 'active': 'bg-blue-500/20 text-blue-400', 'scheduled': 'bg-blue-500/20 text-blue-400',
-    'processing': 'bg-cyan-500/20 text-cyan-400',
-    'pending': 'bg-yellow-500/20 text-yellow-400',
-    'cancelled': 'bg-red-500/20 text-red-400', 'dropped': 'bg-red-500/20 text-red-400', 'no-show': 'bg-red-500/20 text-red-400',
-    'paid': 'bg-green-500/20 text-green-400', 'refunded': 'bg-orange-500/20 text-orange-400',
-  };
-  return map[s] || 'bg-gray-500/20 text-gray-400';
-};
+// Map status values to Tailwind color classes
+const statusColor = (s) => ({
+  'delivered': 'bg-green-500/20 text-green-400', 'completed': 'bg-green-500/20 text-green-400',
+  'shipped': 'bg-blue-500/20 text-blue-400', 'active': 'bg-blue-500/20 text-blue-400', 'scheduled': 'bg-blue-500/20 text-blue-400',
+  'processing': 'bg-cyan-500/20 text-cyan-400', 'pending': 'bg-yellow-500/20 text-yellow-400',
+  'cancelled': 'bg-red-500/20 text-red-400', 'dropped': 'bg-red-500/20 text-red-400', 'no-show': 'bg-red-500/20 text-red-400',
+  'paid': 'bg-green-500/20 text-green-400', 'refunded': 'bg-orange-500/20 text-orange-400',
+}[s] || 'bg-gray-500/20 text-gray-400');
+
 
 const Orders = () => {
   const { authToken } = useContext(AuthContext);
@@ -79,23 +74,18 @@ const Orders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterValue, setFilterValue] = useState("All");
 
+  // Fetch data when category changes
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get(`${API_URL}${config.endpoint}`, {
-          headers: { Authorization: `Bearer ${authToken.access}` }
-        });
-        setItems(response.data);
-      } catch (err) {
-        console.error("Error fetching:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (authToken) fetchData();
+    if (!authToken) return;
+    setLoading(true);
+    axios.get(`${API_URL}${config.endpoint}`, {
+      headers: { Authorization: `Bearer ${authToken.access}` }
+    }).then(res => setItems(res.data))
+      .catch(err => console.error("Error:", err))
+      .finally(() => setLoading(false));
   }, [authToken, category]);
 
+  // Apply search + filter
   const filtered = useMemo(() => {
     return items.filter(item => {
       const matchSearch = Object.values(item).some(v => typeof v === 'string' && v.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -119,7 +109,7 @@ const Orders = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{config.title}</h1>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{filtered.length} total {config.title.toLowerCase()}</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{filtered.length} total</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -136,7 +126,7 @@ const Orders = () => {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Data Table */}
       <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -154,20 +144,18 @@ const Orders = () => {
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
                   {config.columns.map(col => (
                     <td key={col.key} className="px-4 py-3 text-sm" style={{ color: 'var(--text-primary)' }}>
-                      {col.key === 'status' || col.key === 'payment_status' ? (
+                      {/* Status badge */}
+                      {(col.key === 'status' || col.key === 'payment_status') ? (
                         <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${statusColor(item[col.key])}`}>{item[col.key]}</span>
                       ) : col.isProgress ? (
+                        /* Progress bar (for enrollment progress) */
                         <div className="flex items-center gap-2 min-w-[120px]">
                           <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
                             <div className="h-2 rounded-full bg-purple-500 transition-all" style={{ width: `${item[col.key]}%` }} />
                           </div>
                           <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{item[col.key]}%</span>
                         </div>
-                      ) : col.format ? (
-                        col.format(item[col.key])
-                      ) : (
-                        item[col.key] || '—'
-                      )}
+                      ) : col.format ? col.format(item[col.key]) : (item[col.key] || '—')}
                     </td>
                   ))}
                 </tr>
@@ -177,6 +165,7 @@ const Orders = () => {
         </div>
       </div>
 
+      {/* Empty State */}
       {filtered.length === 0 && (
         <div className="text-center py-16">
           <Icon className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--text-dim)' }} />

@@ -1,3 +1,12 @@
+/**
+ * Settings.jsx — Dashboard preferences page
+ * 
+ * Features:
+ * 1. Theme toggle (Dark/Light mode) — persisted via ThemeContext
+ * 2. Chart type selector (Area/Bar/Line/Pie/Radar) — saved in localStorage
+ * 
+ * Adapts to the current category (shows category name, color, description).
+ */
 import React, { useState, useEffect } from "react";
 import {
   Settings as SettingsIcon,

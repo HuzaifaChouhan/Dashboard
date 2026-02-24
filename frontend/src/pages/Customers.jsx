@@ -1,3 +1,11 @@
+/**
+ * Customers.jsx — Universal page for Customers / Students / Patients
+ * 
+ * CONFIG-DRIVEN — changes API endpoint, card layout, and form fields per category.
+ * E-Commerce → Customers | Education → Students | Healthcare → Patients
+ * 
+ * Features: search, filter, card grid layout, Add modal, Delete with confirmation.
+ */
 import React, { useState, useMemo, useContext, useEffect } from "react";
 import { Search, Users, GraduationCap, Heart, Mail, Phone, Plus, Trash2, X } from "lucide-react";
 import AuthContext from '../context/AuthContext';
@@ -5,26 +13,27 @@ import { useCategory } from '../context/CategoryContext';
 import axios from 'axios';
 import API_URL from '../config/api';
 
+// Config for each category — defines API, card details, and form fields
 const CATEGORY_CONFIG = {
   ecommerce: {
     title: 'Customers', endpoint: '/api/customers/', searchPlaceholder: 'Search customers...', icon: Users,
     filterField: 'status', filterOptions: ['All', 'active', 'inactive', 'banned'],
     cardDetail1: { key: 'email', icon: Mail }, cardDetail2: { key: 'phone', icon: Phone },
-    cardBadge: { key: 'loyalty_tier' },
+    cardBadge: { key: 'loyalty_tier' },  // Shows Gold/Silver/Bronze
     addFields: [
       { key: 'id', label: 'Customer ID', placeholder: 'CUST-005', required: true },
       { key: 'name', label: 'Full Name', placeholder: 'John Doe', required: true },
       { key: 'email', label: 'Email', placeholder: 'john@email.com', type: 'email', required: true },
       { key: 'phone', label: 'Phone', placeholder: '+1 555-1234' },
       { key: 'address', label: 'Address', placeholder: '123 Main St', isTextarea: true },
-      { key: 'loyalty_tier', label: 'Loyalty Tier', placeholder: 'Bronze', options: ['Bronze', 'Silver', 'Gold'] },
+      { key: 'loyalty_tier', label: 'Loyalty Tier', options: ['Bronze', 'Silver', 'Gold'] },
     ],
   },
   education: {
     title: 'Students', endpoint: '/api/students/', searchPlaceholder: 'Search students...', icon: GraduationCap,
     filterField: 'status', filterOptions: ['All', 'active', 'inactive', 'graduated'],
     cardDetail1: { key: 'email', icon: Mail }, cardDetail2: { key: 'phone', icon: Phone },
-    cardBadge: null,
+    cardBadge: null,  // No special badge for students
     addFields: [
       { key: 'id', label: 'Student ID', placeholder: 'STU-009', required: true },
       { key: 'name', label: 'Full Name', placeholder: 'Alice Brown', required: true },
@@ -35,7 +44,8 @@ const CATEGORY_CONFIG = {
   healthcare: {
     title: 'Patients', endpoint: '/api/patients/', searchPlaceholder: 'Search patients...', icon: Heart,
     filterField: 'status', filterOptions: ['All', 'active', 'discharged', 'critical'],
-    cardDetail1: { key: 'condition', icon: Heart }, cardDetail2: { key: 'blood_group', icon: null },
+    cardDetail1: { key: 'condition', icon: Heart },     // Shows diagnosis
+    cardDetail2: { key: 'blood_group', icon: null },     // Shows blood type
     cardBadge: { key: 'status' },
     addFields: [
       { key: 'id', label: 'Patient ID', placeholder: 'PAT-008', required: true },
@@ -43,22 +53,21 @@ const CATEGORY_CONFIG = {
       { key: 'email', label: 'Email', placeholder: 'maria@email.com', type: 'email' },
       { key: 'phone', label: 'Phone', placeholder: '+1 555-1001' },
       { key: 'age', label: 'Age', placeholder: '45', type: 'number' },
-      { key: 'gender', label: 'Gender', options: ['male', 'female', 'other'] },
+      { key: 'gender', label: 'Gender', options: ['male', 'female', 'other'] },  // Dropdown
       { key: 'blood_group', label: 'Blood Group', placeholder: 'A+' },
-      { key: 'condition', label: 'Condition', placeholder: 'Diagnosis / Condition' },
+      { key: 'condition', label: 'Condition', placeholder: 'Diagnosis' },
     ],
   }
 };
 
-const statusColor = (s) => {
-  const map = {
-    'active': 'bg-green-500/20 text-green-400', 'graduated': 'bg-blue-500/20 text-blue-400',
-    'inactive': 'bg-gray-500/20 text-gray-400', 'banned': 'bg-red-500/20 text-red-400',
-    'discharged': 'bg-blue-500/20 text-blue-400', 'critical': 'bg-red-500/20 text-red-400',
-    'Gold': 'bg-yellow-500/20 text-yellow-400', 'Silver': 'bg-gray-400/20 text-gray-300', 'Bronze': 'bg-orange-500/20 text-orange-400',
-  };
-  return map[s] || 'bg-purple-500/20 text-purple-400';
-};
+// Status → color badge mapping
+const statusColor = (s) => ({
+  'active': 'bg-green-500/20 text-green-400', 'graduated': 'bg-blue-500/20 text-blue-400',
+  'inactive': 'bg-gray-500/20 text-gray-400', 'banned': 'bg-red-500/20 text-red-400',
+  'discharged': 'bg-blue-500/20 text-blue-400', 'critical': 'bg-red-500/20 text-red-400',
+  'Gold': 'bg-yellow-500/20 text-yellow-400', 'Silver': 'bg-gray-400/20 text-gray-300', 'Bronze': 'bg-orange-500/20 text-orange-400',
+}[s] || 'bg-purple-500/20 text-purple-400');
+
 
 const Customers = () => {
   const { authToken } = useContext(AuthContext);
@@ -73,19 +82,21 @@ const Customers = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [formData, setFormData] = useState({});
 
+  // Fetch data on mount and when category changes
   useEffect(() => { fetchData(); }, [authToken, category]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}${config.endpoint}`, {
+      const res = await axios.get(`${API_URL}${config.endpoint}`, {
         headers: { Authorization: `Bearer ${authToken.access}` }
       });
-      setItems(response.data);
+      setItems(res.data);
     } catch (err) { console.error("Error:", err); }
     finally { setLoading(false); }
   };
 
+  // CREATE — POST new item to API
   const handleAdd = async () => {
     try {
       await axios.post(`${API_URL}${config.endpoint}`, formData, {
@@ -94,9 +105,10 @@ const Customers = () => {
       setShowAddModal(false);
       setFormData({});
       fetchData();
-    } catch (err) { console.error("Add error:", err); alert("Failed to add. Check all required fields."); }
+    } catch (err) { console.error("Add error:", err); alert("Failed to add. Check required fields."); }
   };
 
+  // DELETE — Remove item by ID
   const handleDelete = async (id) => {
     if (!window.confirm(`Delete ${id}?`)) return;
     try {
@@ -107,6 +119,7 @@ const Customers = () => {
     } catch (err) { console.error("Delete error:", err); }
   };
 
+  // Search + filter logic
   const filtered = useMemo(() => {
     return items.filter(item => {
       const matchSearch = Object.values(item).some(v => typeof v === 'string' && v.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -126,11 +139,11 @@ const Customers = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header + Search + Filter + Add */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{config.title}</h1>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{filtered.length} total {config.title.toLowerCase()}</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{filtered.length} total</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -145,23 +158,26 @@ const Customers = () => {
             {config.filterOptions.map(f => <option key={f} value={f} className="capitalize">{f}</option>)}
           </select>
           <button onClick={() => { setFormData({}); setShowAddModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium hover:opacity-90 transition-opacity">
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium hover:opacity-90">
             <Plus className="w-4 h-4" /> Add
           </button>
         </div>
       </div>
 
-      {/* Cards Grid */}
+      {/* Card Grid — Each person as a card with avatar initials */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map(item => {
+          // Generate initials from name (e.g. "John Doe" → "JD")
           const initials = item.name ? item.name.split(' ').map(n => n[0]).join('').slice(0, 2) : '?';
           return (
             <div key={item.id} className="rounded-xl border p-5 hover:scale-[1.02] transition-transform duration-200 group relative"
               style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+              {/* Delete button (appears on hover) */}
               <button onClick={() => handleDelete(item.id)}
                 className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity bg-red-500/20 hover:bg-red-500/30 text-red-400">
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
+              {/* Avatar + Name + Badge */}
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
                   {initials}
@@ -174,6 +190,7 @@ const Customers = () => {
                   {config.cardBadge ? item[config.cardBadge.key] : item.status}
                 </span>
               </div>
+              {/* Details (email, phone, condition, etc.) */}
               <div className="space-y-2">
                 {config.cardDetail1 && item[config.cardDetail1.key] && (
                   <div className="flex items-center gap-2">
@@ -193,6 +210,7 @@ const Customers = () => {
         })}
       </div>
 
+      {/* Empty State */}
       {filtered.length === 0 && (
         <div className="text-center py-16">
           <Icon className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--text-dim)' }} />
@@ -200,7 +218,7 @@ const Customers = () => {
         </div>
       )}
 
-      {/* Add Modal */}
+      {/* ADD MODAL — Dynamic form fields from config */}
       {showAddModal && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowAddModal(false)} />
@@ -215,6 +233,7 @@ const Customers = () => {
                   <div key={field.key}>
                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{field.label} {field.required && <span className="text-red-400">*</span>}</label>
                     {field.options ? (
+                      /* Dropdown (for gender, loyalty tier) */
                       <select value={formData[field.key] || ''} onChange={e => setFormData({ ...formData, [field.key]: e.target.value })}
                         className="w-full px-3 py-2 rounded-lg border text-sm"
                         style={{ backgroundColor: 'var(--input-bg)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
@@ -236,8 +255,7 @@ const Customers = () => {
                 ))}
               </div>
               <div className="px-6 py-4 border-t flex justify-end gap-3" style={{ borderColor: 'var(--border-color)' }}>
-                <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-lg border text-sm"
-                  style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Cancel</button>
+                <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Cancel</button>
                 <button onClick={handleAdd} className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium hover:opacity-90">
                   Add {config.title.replace(/s$/, '')}
                 </button>

@@ -1,3 +1,8 @@
+# seed_data.py — Populates the database with sample data for all 3 categories
+# Run with: python seed_data.py
+#
+# Creates: 3 users (admin/manager/viewer), 7 products, 4 customers, 5 orders,
+#          5 courses, 8 students, 10 enrollments, 5 departments, 7 patients, 8 appointments
 import os
 import django
 from datetime import datetime, timedelta
