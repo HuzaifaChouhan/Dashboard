@@ -1,189 +1,188 @@
-import React, { useState, useMemo, useEffect, useContext } from "react";
-import { Search, Filter, Eye, Download, Calendar } from "lucide-react";
+import React, { useState, useMemo, useContext, useEffect } from "react";
+import { Search, ShoppingCart, ClipboardList, Calendar, Eye } from "lucide-react";
 import AuthContext from '../context/AuthContext';
+import { useCategory } from '../context/CategoryContext';
 import axios from 'axios';
 import API_URL from '../config/api';
 
+const CATEGORY_CONFIG = {
+  ecommerce: {
+    title: 'Orders',
+    endpoint: '/api/orders/',
+    searchPlaceholder: 'Search orders...',
+    icon: ShoppingCart,
+    filterField: 'status',
+    filterOptions: ['All', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'],
+    columns: [
+      { key: 'id', label: 'Order ID' },
+      { key: 'customer_name', label: 'Customer' },
+      { key: 'order_date', label: 'Date', format: v => new Date(v).toLocaleDateString() },
+      { key: 'total_amount', label: 'Amount', format: v => `$${parseFloat(v).toFixed(2)}` },
+      { key: 'payment_status', label: 'Payment' },
+      { key: 'status', label: 'Status' },
+    ]
+  },
+  education: {
+    title: 'Enrollments',
+    endpoint: '/api/enrollments/',
+    searchPlaceholder: 'Search enrollments...',
+    icon: ClipboardList,
+    filterField: 'status',
+    filterOptions: ['All', 'active', 'completed', 'dropped'],
+    columns: [
+      { key: 'id', label: 'ID' },
+      { key: 'student_name', label: 'Student' },
+      { key: 'course_name', label: 'Course' },
+      { key: 'progress', label: 'Progress', isProgress: true },
+      { key: 'grade', label: 'Grade', format: v => v || '—' },
+      { key: 'status', label: 'Status' },
+    ]
+  },
+  healthcare: {
+    title: 'Appointments',
+    endpoint: '/api/appointments/',
+    searchPlaceholder: 'Search appointments...',
+    icon: Calendar,
+    filterField: 'status',
+    filterOptions: ['All', 'scheduled', 'completed', 'cancelled', 'no-show'],
+    columns: [
+      { key: 'id', label: 'ID' },
+      { key: 'patient_name', label: 'Patient' },
+      { key: 'doctor', label: 'Doctor' },
+      { key: 'department_name', label: 'Department' },
+      { key: 'appointment_date', label: 'Date', format: v => new Date(v).toLocaleString() },
+      { key: 'status', label: 'Status' },
+    ]
+  }
+};
+
+const statusColor = (s) => {
+  const map = {
+    'delivered': 'bg-green-500/20 text-green-400', 'completed': 'bg-green-500/20 text-green-400',
+    'shipped': 'bg-blue-500/20 text-blue-400', 'active': 'bg-blue-500/20 text-blue-400', 'scheduled': 'bg-blue-500/20 text-blue-400',
+    'processing': 'bg-cyan-500/20 text-cyan-400',
+    'pending': 'bg-yellow-500/20 text-yellow-400',
+    'cancelled': 'bg-red-500/20 text-red-400', 'dropped': 'bg-red-500/20 text-red-400', 'no-show': 'bg-red-500/20 text-red-400',
+    'paid': 'bg-green-500/20 text-green-400', 'refunded': 'bg-orange-500/20 text-orange-400',
+  };
+  return map[s] || 'bg-gray-500/20 text-gray-400';
+};
+
 const Orders = () => {
   const { authToken } = useContext(AuthContext);
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { category } = useCategory();
+  const config = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.ecommerce;
+  const Icon = config.icon;
 
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("All");
-  const [selectedPayment, setSelectedPayment] = useState("All");
-  const [dateRange, setDateRange] = useState("All");
+  const [filterValue, setFilterValue] = useState("All");
 
   useEffect(() => {
-    fetchOrders();
-  }, [authToken]);
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`${API_URL}${config.endpoint}`, {
+          headers: { Authorization: `Bearer ${authToken.access}` }
+        });
+        setItems(response.data);
+      } catch (err) {
+        console.error("Error fetching:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (authToken) fetchData();
+  }, [authToken, category]);
 
-  const fetchOrders = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`${API_URL}/api/orders/`, {
-        headers: { Authorization: `Bearer ${authToken.access}` }
-      });
-      setOrders(response.data);
-      setLoading(false);
-    } catch (err) {
-      console.error("Error fetching orders:", err);
-      setError("Failed to load orders");
-      setLoading(false);
-    }
-  };
-
-  const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
-      const customerName = order.customer_name || '';
-      const orderId = order.id || '';
-
-      const matchesSearch =
-        orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customerName.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesStatus =
-        selectedStatus === "All" || order.status === selectedStatus;
-
-      const matchesPayment =
-        selectedPayment === "All" || order.payment_status === selectedPayment;
-
-      // Date range filtering (simplified for now)
-      // In a real app, this would compare specific dates
-      return matchesSearch && matchesStatus && matchesPayment;
+  const filtered = useMemo(() => {
+    return items.filter(item => {
+      const matchSearch = Object.values(item).some(v => typeof v === 'string' && v.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchFilter = filterValue === "All" || item[config.filterField] === filterValue;
+      return matchSearch && matchFilter;
     });
-  }, [orders, searchTerm, selectedStatus, selectedPayment]);
+  }, [items, searchTerm, filterValue, config.filterField]);
 
-  if (loading) return <div className="text-white text-center mt-20">Loading orders...</div>;
-  if (error) return <div className="text-red-400 text-center mt-20">{error}</div>;
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <div className="w-16 h-16 rounded-full border-4 border-t-transparent animate-spin" style={{ borderColor: 'var(--border-color)', borderTopColor: '#3b82f6' }}></div>
+        <p className="text-lg animate-pulse" style={{ color: 'var(--text-muted)' }}>Loading {config.title.toLowerCase()}...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <h1 className="text-2xl font-bold text-white">Orders</h1>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
-          <Download className="w-5 h-5" />
-          Export Orders
-        </button>
-      </div>
-
-      {/* Filters Section */}
-      <div className="bg-[#111827] p-4 rounded-lg border border-gray-700 flex flex-col lg:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Search orders..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-[#1f2937] text-white pl-10 pr-4 py-2 rounded-lg border border-gray-600 focus:outline-none focus:border-blue-500"
-          />
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{config.title}</h1>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{filtered.length} total {config.title.toLowerCase()}</p>
         </div>
-
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex items-center gap-3">
           <div className="relative">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full sm:w-40 bg-[#1f2937] text-white pl-10 pr-4 py-2 rounded-lg border border-gray-600 focus:outline-none focus:border-blue-500 appearance-none cursor-pointer"
-            >
-              <option value="All">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="processing">Processing</option>
-              <option value="shipped">Shipped</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-dim)' }} />
+            <input type="text" placeholder={config.searchPlaceholder} value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 rounded-lg border text-sm w-56"
+              style={{ backgroundColor: 'var(--input-bg)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
           </div>
-
-          <select
-            value={selectedPayment}
-            onChange={(e) => setSelectedPayment(e.target.value)}
-            className="w-full sm:w-40 bg-[#1f2937] text-white px-4 py-2 rounded-lg border border-gray-600 focus:outline-none focus:border-blue-500 appearance-none cursor-pointer"
-          >
-            <option value="All">All Payments</option>
-            <option value="paid">Paid</option>
-            <option value="pending">Pending</option>
-            <option value="failed">Failed</option>
+          <select value={filterValue} onChange={e => setFilterValue(e.target.value)}
+            className="px-3 py-2 rounded-lg border text-sm capitalize"
+            style={{ backgroundColor: 'var(--input-bg)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+            {config.filterOptions.map(f => <option key={f} value={f} className="capitalize">{f}</option>)}
           </select>
         </div>
       </div>
 
-      {/* Orders Table */}
-      <div className="bg-[#111827] rounded-lg border border-gray-700 overflow-hidden">
+      {/* Table */}
+      <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-[#1f2937] border-b border-gray-700">
-                <th className="text-left text-gray-400 text-xs sm:text-sm font-medium py-4 px-6">Order ID</th>
-                <th className="text-left text-gray-400 text-xs sm:text-sm font-medium py-4 px-6">Customer</th>
-                <th className="text-left text-gray-400 text-xs sm:text-sm font-medium py-4 px-6">Date</th>
-                <th className="text-left text-gray-400 text-xs sm:text-sm font-medium py-4 px-6">Items</th>
-                <th className="text-left text-gray-400 text-xs sm:text-sm font-medium py-4 px-6">Total</th>
-                <th className="text-left text-gray-400 text-xs sm:text-sm font-medium py-4 px-6">Status</th>
-                <th className="text-left text-gray-400 text-xs sm:text-sm font-medium py-4 px-6">Payment</th>
-                <th className="text-left text-gray-400 text-xs sm:text-sm font-medium py-4 px-6">Action</th>
+              <tr className="border-b" style={{ borderColor: 'var(--border-color)' }}>
+                {config.columns.map(col => (
+                  <th key={col.key} className="text-left text-xs font-semibold px-4 py-3" style={{ color: 'var(--text-muted)', backgroundColor: 'var(--bg-tertiary)' }}>{col.label}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {filteredOrders.map((order) => (
-                <tr
-                  key={order.id}
-                  className="border-b border-gray-700 hover:bg-[#1a2332] transition-colors"
-                >
-                  <td className="py-4 px-6 text-white font-medium">{order.id}</td>
-                  <td className="py-4 px-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-xs text-white">
-                        {order.customer_name ? order.customer_name.charAt(0) : 'U'}
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-white text-sm font-medium">{order.customer_name}</span>
-                        <span className="text-gray-400 text-xs">{order.customer_email}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-4 px-6 text-gray-400 text-sm">
-                    {new Date(order.order_date).toLocaleDateString()}
-                  </td>
-                  <td className="py-4 px-6 text-gray-400 text-sm">{order.items ? order.items.length : 0} items</td>
-                  <td className="py-4 px-6 text-white font-medium">${order.total_amount}</td>
-                  <td className="py-4 px-6">
-                    <span
-                      className={`text-xs px-3 py-1 rounded-full whitespace-nowrap capitalize
-                        ${order.status === 'delivered' ? 'bg-green-500/20 text-green-500' :
-                          order.status === 'pending' ? 'bg-yellow-500/20 text-yellow-500' :
-                            order.status === 'cancelled' ? 'bg-red-500/20 text-red-500' : 'bg-blue-500/20 text-blue-500'}`}
-                    >
-                      {order.status}
-                    </span>
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="flex items-center gap-2">
-                      {/* Simplified payment badge */}
-                      <span className={`w-2 h-2 rounded-full ${order.payment_status === 'paid' ? 'bg-green-500' : 'bg-yellow-500'}`}></span>
-                      <span className="text-gray-300 text-sm capitalize">{order.payment_status}</span>
-                    </div>
-                  </td>
-                  <td className="py-4 px-6">
-                    <button className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-gray-700 rounded-lg">
-                      <Eye className="w-5 h-5" />
-                    </button>
-                  </td>
+              {filtered.map(item => (
+                <tr key={item.id} className="border-b transition-colors" style={{ borderColor: 'var(--border-color)' }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                  {config.columns.map(col => (
+                    <td key={col.key} className="px-4 py-3 text-sm" style={{ color: 'var(--text-primary)' }}>
+                      {col.key === 'status' || col.key === 'payment_status' ? (
+                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${statusColor(item[col.key])}`}>{item[col.key]}</span>
+                      ) : col.isProgress ? (
+                        <div className="flex items-center gap-2 min-w-[120px]">
+                          <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                            <div className="h-2 rounded-full bg-purple-500 transition-all" style={{ width: `${item[col.key]}%` }} />
+                          </div>
+                          <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{item[col.key]}%</span>
+                        </div>
+                      ) : col.format ? (
+                        col.format(item[col.key])
+                      ) : (
+                        item[col.key] || '—'
+                      )}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
           </table>
-
-          {filteredOrders.length === 0 && (
-            <div className="text-center text-gray-400 py-10">
-              No orders found.
-            </div>
-          )}
         </div>
       </div>
+
+      {filtered.length === 0 && (
+        <div className="text-center py-16">
+          <Icon className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--text-dim)' }} />
+          <p style={{ color: 'var(--text-muted)' }}>No {config.title.toLowerCase()} found</p>
+        </div>
+      )}
     </div>
   );
 };
