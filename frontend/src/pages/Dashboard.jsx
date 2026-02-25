@@ -12,7 +12,7 @@ import React, { useState, useEffect, useContext } from "react";
 import {
   Star, TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Users,
   AlertCircle, Settings, GraduationCap, Award, BookOpen, Heart, Calendar,
-  BedDouble, Activity, Download
+  BedDouble, Activity, Download, Crown
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line,
@@ -47,7 +47,7 @@ const Dashboard = () => {
   const [chartData, setChartData] = useState([]);
 
   // Chart preferences
-  const chartType = localStorage.getItem('dashboard_chart_type') || 'area';
+  const chartType = localStorage.getItem('dashboard_chart_type') || 'pie';
   const isDark = theme === 'dark';
   const gridColor = isDark ? '#374151' : '#e5e7eb';
   const axisColor = isDark ? '#9ca3af' : '#6b7280';
@@ -212,7 +212,7 @@ const Dashboard = () => {
                 <td className="py-3 px-2 text-sm" style={{ color: 'var(--text-primary)' }}>{item.id}</td>
                 <td className="py-3 px-2 text-sm" style={{ color: 'var(--text-primary)' }}>{item.customer_name}</td>
                 <td className="py-3 px-2 text-sm hidden md:table-cell" style={{ color: 'var(--text-muted)' }}>{new Date(item.order_date).toLocaleDateString()}</td>
-                <td className="py-3 px-2 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>${item.total_amount}</td>
+                <td className="py-3 px-2 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>₹{item.total_amount}</td>
                 <td className="py-3 px-2"><span className={`text-xs px-2 py-1 rounded-full ${item.status === 'delivered' ? 'bg-green-500/20 text-green-500' : item.status === 'pending' ? 'bg-yellow-500/20 text-yellow-500' : 'bg-blue-500/20 text-blue-500'}`}>{item.status}</span></td>
               </tr>
             ))}
@@ -369,6 +369,69 @@ const Dashboard = () => {
         </div>
         {renderChart()}
       </div>
+
+      {/* Top Customers — E-commerce only */}
+      {category === 'ecommerce' && dashData?.top_customers?.length > 0 && (
+        <div className="rounded-lg p-4 sm:p-6 border" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center">
+              <Crown className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg sm:text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>Top Customers</h3>
+              <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Ranked by total spend</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {dashData.top_customers.map((customer, index) => {
+              const tierColors = {
+                Gold: 'from-yellow-500 to-amber-500',
+                Silver: 'from-gray-400 to-gray-500',
+                Bronze: 'from-orange-700 to-orange-800',
+              };
+              const tierBg = {
+                Gold: 'bg-yellow-500/15 text-yellow-500 border-yellow-500/30',
+                Silver: 'bg-gray-400/15 text-gray-400 border-gray-400/30',
+                Bronze: 'bg-orange-700/15 text-orange-600 border-orange-600/30',
+              };
+              const rankBadge = index === 0 ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-white'
+                : index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-gray-800'
+                  : index === 2 ? 'bg-gradient-to-br from-orange-600 to-orange-700 text-white'
+                    : 'bg-gray-500/20 text-gray-400';
+
+              return (
+                <div key={customer.id} className="rounded-xl p-4 border transition-all hover:scale-[1.02] hover:shadow-lg"
+                  style={{ backgroundColor: 'var(--bg-tertiary)', borderColor: 'var(--border-color)' }}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${rankBadge}`}>
+                      #{index + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{customer.name}</p>
+                      <p className="text-xs truncate" style={{ color: 'var(--text-dim)' }}>{customer.email}</p>
+                    </div>
+                  </div>
+                  <div className="mb-3">
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${tierBg[customer.loyalty_tier] || tierBg.Bronze}`}>
+                      {customer.loyalty_tier}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Total Spent</span>
+                      <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>₹{customer.total_spent.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Orders</span>
+                      <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{customer.order_count}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Recent Items Table */}
       <div className="rounded-lg p-4 sm:p-6 border" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>

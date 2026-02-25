@@ -28,10 +28,10 @@ const CATEGORY_CONFIG = {
     title: 'Products', endpoint: '/api/products/', searchPlaceholder: 'Search products...', filterField: 'category', icon: Package,
     columns: [
       { key: 'name', label: 'Product' }, { key: 'category', label: 'Category' },
-      { key: 'unit_price', label: 'Price', format: v => `$${parseFloat(v).toFixed(2)}` },
+      { key: 'unit_price', label: 'Price', format: v => `₹${parseFloat(v).toFixed(2)}` },
       { key: 'current_stock', label: 'Stock' }, { key: 'status', label: 'Status' },
     ],
-    cardFields: { title: 'name', subtitle: 'category', badge: 'status', metric: 'unit_price', metricPrefix: '$', sub1: 'sku', sub1Label: 'SKU' },
+    cardFields: { title: 'name', subtitle: 'category', badge: 'status', metric: 'unit_price', metricPrefix: '₹', sub1: 'sku', sub1Label: 'SKU' },
     addFields: [
       { key: 'id', label: 'Product ID', placeholder: 'PRD-008', required: true },
       { key: 'name', label: 'Name', placeholder: 'Product name', required: true },
@@ -47,9 +47,9 @@ const CATEGORY_CONFIG = {
     columns: [
       { key: 'name', label: 'Course Name' }, { key: 'instructor', label: 'Instructor' },
       { key: 'category', label: 'Category' }, { key: 'duration_hours', label: 'Duration', format: v => `${v}h` },
-      { key: 'price', label: 'Price', format: v => `$${parseFloat(v).toFixed(2)}` }, { key: 'status', label: 'Status' },
+      { key: 'price', label: 'Price', format: v => `₹${parseFloat(v).toFixed(2)}` }, { key: 'status', label: 'Status' },
     ],
-    cardFields: { title: 'name', subtitle: 'instructor', badge: 'status', metric: 'price', metricPrefix: '$', sub1: 'category', sub1Label: 'Category' },
+    cardFields: { title: 'name', subtitle: 'instructor', badge: 'status', metric: 'price', metricPrefix: '₹', sub1: 'category', sub1Label: 'Category' },
     addFields: [
       { key: 'id', label: 'Course ID', placeholder: 'CRS-006', required: true },
       { key: 'name', label: 'Course Name', placeholder: 'React Advanced', required: true },
@@ -188,11 +188,13 @@ const Products = () => {
             <button onClick={() => setViewMode('grid')} className="p-2" style={{ backgroundColor: viewMode === 'grid' ? 'var(--bg-tertiary)' : 'transparent', color: viewMode === 'grid' ? 'var(--text-primary)' : 'var(--text-dim)' }}><Grid className="w-4 h-4" /></button>
             <button onClick={() => setViewMode('list')} className="p-2" style={{ backgroundColor: viewMode === 'list' ? 'var(--bg-tertiary)' : 'transparent', color: viewMode === 'list' ? 'var(--text-primary)' : 'var(--text-dim)' }}><List className="w-4 h-4" /></button>
           </div>
-          {/* Add Button */}
-          <button onClick={() => { setFormData({}); setShowAddModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium hover:opacity-90">
-            <Plus className="w-4 h-4" /> Add
-          </button>
+          {/* Add Button — hidden for e-commerce (handled in Inventory page) */}
+          {category !== 'ecommerce' && (
+            <button onClick={() => { setFormData({}); setShowAddModal(true); }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium hover:opacity-90">
+              <Plus className="w-4 h-4" /> Add
+            </button>
+          )}
         </div>
       </div>
 

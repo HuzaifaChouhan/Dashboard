@@ -7,7 +7,7 @@
  * Features: search, status filter, sortable table with status badges and progress bars.
  */
 import React, { useState, useMemo, useContext, useEffect } from "react";
-import { Search, ShoppingCart, ClipboardList, Calendar } from "lucide-react";
+import { Search, ShoppingCart, ClipboardList, Calendar, Eye, X } from "lucide-react";
 import AuthContext from '../context/AuthContext';
 import { useCategory } from '../context/CategoryContext';
 import axios from 'axios';
@@ -22,7 +22,7 @@ const CATEGORY_CONFIG = {
       { key: 'id', label: 'Order ID' },
       { key: 'customer_name', label: 'Customer' },
       { key: 'order_date', label: 'Date', format: v => new Date(v).toLocaleDateString() },
-      { key: 'total_amount', label: 'Amount', format: v => `$${parseFloat(v).toFixed(2)}` },
+      { key: 'total_amount', label: 'Amount', format: v => `₹${parseFloat(v).toFixed(2)}` },
       { key: 'payment_status', label: 'Payment' },
       { key: 'status', label: 'Status' },
     ]
@@ -73,6 +73,7 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterValue, setFilterValue] = useState("All");
+  const [selectedOrder, setSelectedOrder] = useState(null);
 
   // Fetch data when category changes
   useEffect(() => {
@@ -135,6 +136,7 @@ const Orders = () => {
                 {config.columns.map(col => (
                   <th key={col.key} className="text-left text-xs font-semibold px-4 py-3" style={{ color: 'var(--text-muted)', backgroundColor: 'var(--bg-tertiary)' }}>{col.label}</th>
                 ))}
+                <th className="text-left text-xs font-semibold px-4 py-3" style={{ color: 'var(--text-muted)', backgroundColor: 'var(--bg-tertiary)' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -158,6 +160,16 @@ const Orders = () => {
                       ) : col.format ? col.format(item[col.key]) : (item[col.key] || '—')}
                     </td>
                   ))}
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => setSelectedOrder(item)}
+                      className="p-1.5 rounded-lg transition-colors hover:bg-blue-500/20"
+                      title="View Details"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -170,6 +182,55 @@ const Orders = () => {
         <div className="text-center py-16">
           <Icon className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--text-dim)' }} />
           <p style={{ color: 'var(--text-muted)' }}>No {config.title.toLowerCase()} found</p>
+        </div>
+      )}
+      {/* Order Details Modal */}
+      {selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]">
+          <div className="rounded-xl border max-w-lg w-full max-h-[90vh] overflow-y-auto" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>{config.title.slice(0, -1)} Details</h3>
+                <button onClick={() => setSelectedOrder(null)} className="transition-colors hover:text-white" style={{ color: 'var(--text-muted)' }}>
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                {config.columns.map(col => (
+                  <div key={col.key} className="flex justify-between items-center py-2 border-b" style={{ borderColor: 'var(--border-color)' }}>
+                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{col.label}</span>
+                    <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                      {(col.key === 'status' || col.key === 'payment_status') ? (
+                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${statusColor(selectedOrder[col.key])}`}>{selectedOrder[col.key]}</span>
+                      ) : col.format ? col.format(selectedOrder[col.key]) : (selectedOrder[col.key] || '—')}
+                    </span>
+                  </div>
+                ))}
+                {/* Show extra fields not in columns */}
+                {selectedOrder.shipping_address && (
+                  <div className="py-2 border-b" style={{ borderColor: 'var(--border-color)' }}>
+                    <span className="text-sm block mb-1" style={{ color: 'var(--text-muted)' }}>Shipping Address</span>
+                    <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{selectedOrder.shipping_address}</span>
+                  </div>
+                )}
+                {selectedOrder.tracking_number && (
+                  <div className="flex justify-between items-center py-2 border-b" style={{ borderColor: 'var(--border-color)' }}>
+                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Tracking Number</span>
+                    <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{selectedOrder.tracking_number}</span>
+                  </div>
+                )}
+                {selectedOrder.payment_method && (
+                  <div className="flex justify-between items-center py-2 border-b" style={{ borderColor: 'var(--border-color)' }}>
+                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Payment Method</span>
+                    <span className="text-sm font-medium capitalize" style={{ color: 'var(--text-primary)' }}>{selectedOrder.payment_method}</span>
+                  </div>
+                )}
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button onClick={() => setSelectedOrder(null)} className="px-4 py-2 rounded-lg text-sm font-medium transition-colors" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>Close</button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

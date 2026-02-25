@@ -7,7 +7,7 @@
  * Features: search, filter, card grid layout, Add modal, Delete with confirmation.
  */
 import React, { useState, useMemo, useContext, useEffect } from "react";
-import { Search, Users, GraduationCap, Heart, Mail, Phone, Plus, Trash2, X } from "lucide-react";
+import { Search, Users, GraduationCap, Heart, Mail, Phone, Plus, Trash2, Edit3, X } from "lucide-react";
 import AuthContext from '../context/AuthContext';
 import { useCategory } from '../context/CategoryContext';
 import axios from 'axios';
@@ -80,7 +80,9 @@ const Customers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterValue, setFilterValue] = useState("All");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [formData, setFormData] = useState({});
+  const [editData, setEditData] = useState({});
 
   // Fetch data on mount and when category changes
   useEffect(() => { fetchData(); }, [authToken, category]);
@@ -117,6 +119,24 @@ const Customers = () => {
       });
       fetchData();
     } catch (err) { console.error("Delete error:", err); }
+  };
+
+  // EDIT — Open edit modal pre-filled with item data
+  const openEditModal = (item) => {
+    setEditData({ ...item });
+    setShowEditModal(true);
+  };
+
+  // UPDATE — PUT to API
+  const handleEdit = async () => {
+    try {
+      await axios.put(`${API_URL}${config.endpoint}${editData.id}/`, editData, {
+        headers: { Authorization: `Bearer ${authToken.access}`, 'Content-Type': 'application/json' }
+      });
+      setShowEditModal(false);
+      setEditData({});
+      fetchData();
+    } catch (err) { console.error("Edit error:", err); alert("Failed to update. Check required fields."); }
   };
 
   // Search + filter logic
@@ -172,11 +192,17 @@ const Customers = () => {
           return (
             <div key={item.id} className="rounded-xl border p-5 hover:scale-[1.02] transition-transform duration-200 group relative"
               style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
-              {/* Delete button (appears on hover) */}
-              <button onClick={() => handleDelete(item.id)}
-                className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity bg-red-500/20 hover:bg-red-500/30 text-red-400">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              {/* Edit & Delete buttons (appear on hover) */}
+              <div className="absolute top-3 right-3 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => openEditModal(item)}
+                  className="p-1.5 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400">
+                  <Edit3 className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => handleDelete(item.id)}
+                  className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
               {/* Avatar + Name + Badge */}
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
@@ -258,6 +284,52 @@ const Customers = () => {
                 <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Cancel</button>
                 <button onClick={handleAdd} className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium hover:opacity-90">
                   Add {config.title.replace(/s$/, '')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* EDIT MODAL — Pre-filled form for updating an item */}
+      {showEditModal && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowEditModal(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-xl border shadow-2xl" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+              <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
+                <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Edit {config.title.replace(/s$/, '')}</h3>
+                <button onClick={() => setShowEditModal(false)}><X className="w-5 h-5" style={{ color: 'var(--text-muted)' }} /></button>
+              </div>
+              <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+                {config.addFields.filter(f => f.key !== 'id').map(field => (
+                  <div key={field.key}>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{field.label} {field.required && <span className="text-red-400">*</span>}</label>
+                    {field.options ? (
+                      <select value={editData[field.key] || ''} onChange={e => setEditData({ ...editData, [field.key]: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border text-sm"
+                        style={{ backgroundColor: 'var(--input-bg)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+                        <option value="">Select...</option>
+                        {field.options.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    ) : field.isTextarea ? (
+                      <textarea rows={3} placeholder={field.placeholder}
+                        value={editData[field.key] || ''} onChange={e => setEditData({ ...editData, [field.key]: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
+                        style={{ backgroundColor: 'var(--input-bg)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+                    ) : (
+                      <input type={field.type || 'text'} placeholder={field.placeholder}
+                        value={editData[field.key] || ''} onChange={e => setEditData({ ...editData, [field.key]: field.type === 'number' ? Number(e.target.value) : e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border text-sm"
+                        style={{ backgroundColor: 'var(--input-bg)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="px-6 py-4 border-t flex justify-end gap-3" style={{ borderColor: 'var(--border-color)' }}>
+                <button onClick={() => setShowEditModal(false)} className="px-4 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>Cancel</button>
+                <button onClick={handleEdit} className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium hover:opacity-90">
+                  Save Changes
                 </button>
               </div>
             </div>

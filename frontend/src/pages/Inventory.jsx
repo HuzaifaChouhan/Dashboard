@@ -472,7 +472,7 @@ const Inventory = () => {
             <div className="flex items-center justify-between">
               <div className="min-w-0 flex-1">
                 <p className="text-gray-400 text-sm truncate">Total Value</p>
-                <p className="text-white text-2xl font-bold mt-1 truncate">${stats.totalValue.toFixed(2)}</p>
+                <p className="text-white text-2xl font-bold mt-1 truncate">₹{stats.totalValue.toFixed(2)}</p>
               </div>
               <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0 ml-3">
                 <DollarSign className="w-6 h-6 text-purple-500" />
@@ -684,12 +684,12 @@ const Inventory = () => {
                       </div>
                     </td>
                     <td className="px-4 py-4">
-                      <div className="text-sm text-white font-medium">${parseFloat(product.unit_price).toFixed(2)}</div>
-                      <div className="text-xs text-gray-400">Cost: ${parseFloat(product.unit_cost).toFixed(2)}</div>
+                      <div className="text-sm text-white font-medium">₹{parseFloat(product.unit_price).toFixed(2)}</div>
+                      <div className="text-xs text-gray-400">Cost: ₹{parseFloat(product.unit_cost).toFixed(2)}</div>
                     </td>
                     <td className="px-4 py-4">
                       <div className="text-sm text-white font-medium">
-                        ${(product.current_stock * product.unit_cost).toFixed(2)}
+                        ₹{(product.current_stock * product.unit_cost).toFixed(2)}
                       </div>
                     </td>
                     <td className="px-4 py-4">
@@ -830,11 +830,11 @@ const Inventory = () => {
                       <div className="bg-[#1a2332] rounded-lg p-4 space-y-3">
                         <div className="flex justify-between items-center">
                           <span className="text-gray-400 text-sm">Unit Price</span>
-                          <span className="text-white font-medium">${parseFloat(selectedProduct.unit_price).toFixed(2)}</span>
+                          <span className="text-white font-medium">₹{parseFloat(selectedProduct.unit_price).toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-gray-400 text-sm">Unit Cost</span>
-                          <span className="text-white">${parseFloat(selectedProduct.unit_cost).toFixed(2)}</span>
+                          <span className="text-white">₹{parseFloat(selectedProduct.unit_cost).toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-gray-400 text-sm">Profit Margin</span>
@@ -845,13 +845,13 @@ const Inventory = () => {
                         <div className="flex justify-between items-center">
                           <span className="text-gray-400 text-sm">Total Inventory Value</span>
                           <span className="text-white font-medium">
-                            ${(selectedProduct.current_stock * selectedProduct.unit_cost).toFixed(2)}
+                            ₹{(selectedProduct.current_stock * selectedProduct.unit_cost).toFixed(2)}
                           </span>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-gray-400 text-sm">Potential Revenue</span>
                           <span className="text-white">
-                            ${(selectedProduct.current_stock * selectedProduct.unit_price).toFixed(2)}
+                            ₹{(selectedProduct.current_stock * selectedProduct.unit_price).toFixed(2)}
                           </span>
                         </div>
                       </div>
