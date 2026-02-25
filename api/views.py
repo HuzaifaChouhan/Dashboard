@@ -137,11 +137,39 @@ class DashboardStatsView(APIView):
             stock=Sum('current_stock')
         ).order_by('-stock')
 
+        # Top customers — Gold tier first, then Silver, then Bronze, then by spend
+        from django.db.models import Case, When, IntegerField
+        top_customers = Customer.objects.annotate(
+            total_spent=Sum('orders__total_amount'),
+            order_count=Count('orders'),
+            tier_rank=Case(
+                When(loyalty_tier='Gold', then=0),
+                When(loyalty_tier='Silver', then=1),
+                When(loyalty_tier='Bronze', then=2),
+                default=3,
+                output_field=IntegerField(),
+            )
+        ).order_by('tier_rank', '-total_spent')[:5]
+
+        top_customers_data = [
+            {
+                'id': c.id,
+                'name': c.name,
+                'email': c.email,
+                'avatar': c.avatar or '',
+                'loyalty_tier': c.loyalty_tier,
+                'total_spent': float(c.total_spent or 0),
+                'order_count': c.order_count,
+                'status': c.status,
+            }
+            for c in top_customers
+        ]
+
         ctx = {'request': request}
         return Response({
             'category': 'ecommerce',
             'kpi': [
-                {'title': 'Total Revenue', 'value': revenue, 'prefix': '$', 'change': '+12.5%', 'isPositive': True, 'icon': 'DollarSign', 'color': 'from-green-500 to-emerald-600'},
+                {'title': 'Total Revenue', 'value': revenue, 'prefix': '₹', 'change': '+12.5%', 'isPositive': True, 'icon': 'DollarSign', 'color': 'from-green-500 to-emerald-600'},
                 {'title': 'Total Orders', 'value': orders, 'change': '+8.2%', 'isPositive': True, 'icon': 'ShoppingCart', 'color': 'from-blue-500 to-cyan-600'},
                 {'title': 'Products Sold', 'value': sold, 'change': '-3.1%', 'isPositive': False, 'icon': 'Package', 'color': 'from-purple-500 to-pink-600'},
                 {'title': 'Active Customers', 'value': customers, 'change': '+15.3%', 'isPositive': True, 'icon': 'Users', 'color': 'from-orange-500 to-red-600'},
@@ -154,8 +182,9 @@ class DashboardStatsView(APIView):
                 {'name': 'May', 'value': 6000, 'secondary': 389},
                 {'name': 'Jun', 'value': 5500, 'secondary': 349},
             ],
-            'chart_labels': {'value': 'Revenue ($)', 'secondary': 'Orders'},
+            'chart_labels': {'value': 'Revenue (₹)', 'secondary': 'Orders'},
             'inventory_data': [{'name': i['category'] or 'Uncategorized', 'stock': i['stock'] or 0} for i in stock_data],
+            'top_customers': top_customers_data,
             'recent_items': OrderSerializer(Order.objects.order_by('-order_date')[:5], many=True, context=ctx).data,
             'recent_products': ProductSerializer(Product.objects.order_by('-last_restocked')[:5], many=True, context=ctx).data,
             'notifications': [
@@ -185,7 +214,7 @@ class DashboardStatsView(APIView):
                 {'title': 'Total Students', 'value': total_students, 'change': '+18.2%', 'isPositive': True, 'icon': 'GraduationCap', 'color': 'from-blue-500 to-indigo-600'},
                 {'title': 'Completion Rate', 'value': completion_rate, 'suffix': '%', 'change': '+5.4%', 'isPositive': True, 'icon': 'Award', 'color': 'from-green-500 to-emerald-600'},
                 {'title': 'Active Courses', 'value': total_courses, 'change': '+2', 'isPositive': True, 'icon': 'BookOpen', 'color': 'from-purple-500 to-pink-600'},
-                {'title': 'Course Revenue', 'value': revenue, 'prefix': '$', 'change': '+22.1%', 'isPositive': True, 'icon': 'DollarSign', 'color': 'from-orange-500 to-amber-600'},
+                {'title': 'Course Revenue', 'value': revenue, 'prefix': '₹', 'change': '+22.1%', 'isPositive': True, 'icon': 'DollarSign', 'color': 'from-orange-500 to-amber-600'},
             ],
             'chart_data': [
                 {'name': 'Jan', 'value': 45, 'secondary': 12}, {'name': 'Feb', 'value': 52, 'secondary': 18},
